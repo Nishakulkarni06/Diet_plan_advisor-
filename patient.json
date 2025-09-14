@@ -1,0 +1,37 @@
+{
+  "fullName": "Ramesh Kumar",
+  "dob": "1985-01-15",
+  "gender": "Male",
+  "age": 40,
+  "height": 172,
+  "weight": 70,
+  "bmi": "23.7",
+  "bp": "120/80 mmHg",
+  "prakriti": "Pitta",
+  "tastePref": "sweet, pungent",
+  "foodProperties": "hot, light",
+  "mealFreq": 3,
+  "dietType": "Vegetarian",
+  "waterIntake": 2.5,
+  "bowel": "Normal",
+  "allergies": "lactose",
+  "conditions": "Hypertension",
+  "meds": "Amlodipine",
+  "goals": "Reduce pitta imbalance, maintain healthy blood pressure, improve digestion",
+  "attachments": [
+    {
+      "name": "blood_test_report.pdf",
+      "size": 245678,
+      "type": "application/pdf"
+    },
+    {
+      "name": "bp_chart.jpg",
+      "size": 87654,
+      "type": "image/jpeg"
+    }
+  ],
+  "calculated": {
+    "age": 40,
+    "bmi": "23.7"
+  }
+}
