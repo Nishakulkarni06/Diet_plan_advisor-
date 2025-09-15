@@ -129,34 +129,54 @@ Food Dataset: ${JSON.stringify(foodData, null, 2)}
           role: "user",
           parts: [
             {
-              text: `You are given two JSON inputs:
+              text:`You are given two JSON inputs:
 
-Ayurvedic dish dataset (food.json) with fields: name, category (breakfast/lunch/dinner), type (Vata/Pitta/Kapha), and basic nutrient info.
+1. Ayurvedic dish dataset (food.json) with fields: 
+   - name
+   - category (breakfast/lunch/dinner)
+   - type (Vata/Pitta/Kapha)
+   - rasa (taste: Sweet, Sour, Salty, Bitter, Pungent, Astringent)
+   - guna (Light/Heavy, Oily/Dry, etc.)
+   - virya (Heating/Cooling)
+   - nutrientInfo (calories, protein)
 
-Patient profile JSON with fields: age, gender, dietaryPreferences, mealFrequency, waterIntake, and healthGoals.
+2. Patient profile JSON with fields: 
+   - age
+   - gender
+   - dietaryPreferences
+   - mealFrequency
+   - waterIntake
+   - healthGoals
 
+Task:
 Generate a 7-day meal plan as a JSON object with this exact structure:
 
 {
-"Monday": { "breakfast": ["Dish1", "Dish2"], "lunch": ["Dish3"], "dinner": ["Dish4"] },
-"Tuesday": { ... },
-...
-"Sunday": { ... }
+  "Monday": { 
+    "breakfast": [
+      { "name": "Dish1", "calories": 280, "protein": 9, "rasa": ["Sweet","Astringent"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Balances Pitta-Vata" }
+    ],
+    "lunch": [
+      { "name": "Dish2", "calories": 320, "protein": 10, "rasa": ["Sweet","Bitter"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Reduces Pitta" }
+    ],
+    "dinner": [
+      { "name": "Dish3", "calories": 340, "protein": 12, "rasa": ["Sweet"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Balances All (Tridoshic)" }
+    ]
+  },
+  "Tuesday": { ... },
+  ...
+  "Sunday": { ... }
 }
 
 Rules:
-
-Only output valid JSON, no extra text.
-
-Each day must have breakfast, lunch, dinner keys.
-
-Each value must be an array of dish names from food.json.
-
-Meals must be Ayurveda-compliant and suitable for the patient’s age, gender, and dietary preferences.
-
-Ensure nutritionally balanced meals with variety across the week.
-
-Now generate the 7-day plan using the given patient profile and food dataset.`
+- Only output valid JSON, no explanation or extra text.
+- Each day must have "breakfast", "lunch", and "dinner" keys.
+- Each meal array must include at least one dish object.
+- Dishes must be Ayurveda-compliant (match dosha balance with patient’s profile).
+- Respect dietaryPreferences (e.g., vegetarian, vegan, no onion/garlic).
+- Ensure nutritionally balanced meals with variety across the week.
+- Do not repeat the same dish more than twice in the week.
+Now create the plan based on the patient's health data.`
             }
           ]
         }

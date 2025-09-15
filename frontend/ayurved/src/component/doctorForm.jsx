@@ -6,6 +6,7 @@ function MealPlanTable() {
   const [mealPlan, setMealPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [expandedDish, setExpandedDish] = useState(null);
 
   const generatePlan = async () => {
     if (!patientNumber) {
@@ -28,7 +29,6 @@ function MealPlanTable() {
       console.error("Error:", err);
 
       if (err.response) {
-        // Backend responded with error status
         setError(err.response.data.error || "Something went wrong");
       } else {
         setError("Network error. Please check your backend server.");
@@ -37,6 +37,41 @@ function MealPlanTable() {
       setLoading(false);
     }
   };
+
+  const toggleExpand = (dishKey) => {
+    setExpandedDish(expandedDish === dishKey ? null : dishKey);
+  };
+
+  const renderMeals = (meals, mealType) => (
+    <td className="border border-green-300 px-4 py-2">
+      {meals[mealType].map((dish, i) => {
+        const key = `${mealType}-${i}`;
+        if (typeof dish === "string") {
+          return <div key={key}>{dish}</div>;
+        }
+        return (
+          <div key={key} className="mb-2">
+            <button
+              onClick={() => toggleExpand(key)}
+              className="text-green-700 font-semibold hover:underline"
+            >
+              {dish.name}
+            </button>
+            {expandedDish === key && (
+              <div className="mt-1 p-2 bg-green-50 text-sm text-gray-700 rounded-lg border border-green-200">
+                <p><strong>Calories:</strong> {dish.calories} kcal</p>
+                <p><strong>Protein:</strong> {dish.protein} g</p>
+                <p><strong>Rasa:</strong> {dish.rasa?.join(", ")}</p>
+                <p><strong>Guna:</strong> {dish.guna}</p>
+                <p><strong>Virya:</strong> {dish.virya}</p>
+                <p><strong>Dosha Effect:</strong> {dish.doshaEffect}</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </td>
+  );
 
   return (
     <div className="p-8 bg-green-50 min-h-screen">
@@ -75,15 +110,9 @@ function MealPlanTable() {
                 <td className="border border-green-300 px-4 py-2 font-semibold text-green-700">
                   {day}
                 </td>
-                <td className="border border-green-300 px-4 py-2">
-                  {meals.breakfast.join(", ")}
-                </td>
-                <td className="border border-green-300 px-4 py-2">
-                  {meals.lunch.join(", ")}
-                </td>
-                <td className="border border-green-300 px-4 py-2">
-                  {meals.dinner.join(", ")}
-                </td>
+                {renderMeals(meals, "breakfast")}
+                {renderMeals(meals, "lunch")}
+                {renderMeals(meals, "dinner")}
               </tr>
             ))}
           </tbody>
@@ -94,3 +123,4 @@ function MealPlanTable() {
 }
 
 export default MealPlanTable;
+
