@@ -129,25 +129,34 @@ Food Dataset: ${JSON.stringify(foodData, null, 2)}
           role: "user",
           parts: [
             {
-              text: `You are given two JSON inputs: 
-1) Ayurvedic dish dataset (food.json)
-2) Patient profile (from Firestore)
+              text: `You are given two JSON inputs:
+
+Ayurvedic dish dataset (food.json) with fields: name, category (breakfast/lunch/dinner), type (Vata/Pitta/Kapha), and basic nutrient info.
+
+Patient profile JSON with fields: age, gender, dietaryPreferences, mealFrequency, waterIntake, and healthGoals.
 
 Generate a 7-day meal plan as a JSON object with this exact structure:
+
 {
-  "Monday": { "breakfast": ["Dish1", "Dish2"], "lunch": ["Dish3"], "dinner": ["Dish4"] },
-  "Tuesday": { ... },
-  ...
-  "Sunday": { ... }
+"Monday": { "breakfast": ["Dish1", "Dish2"], "lunch": ["Dish3"], "dinner": ["Dish4"] },
+"Tuesday": { ... },
+...
+"Sunday": { ... }
 }
 
 Rules:
-- Only output valid JSON.
-- Each day must have breakfast, lunch, dinner keys.
-- Each value must be an array of dish names from food.json.
-- No explanation, no extra text — just the JSON object.
 
-Now create the plan based on the patient's health data.`
+Only output valid JSON, no extra text.
+
+Each day must have breakfast, lunch, dinner keys.
+
+Each value must be an array of dish names from food.json.
+
+Meals must be Ayurveda-compliant and suitable for the patient’s age, gender, and dietary preferences.
+
+Ensure nutritionally balanced meals with variety across the week.
+
+Now generate the 7-day plan using the given patient profile and food dataset.`
             }
           ]
         }
@@ -171,7 +180,7 @@ app.get("/", (req, res) => {
 console.log("Gemini API Key:", process.env.GEMINI_API_KEY ? "Loaded ✅" : "Not Loaded ❌");
 
 app.listen(port, () => {
-  console.log(`🚀 Server running at http://localhost:${port}`);
+  console.log(` Server running at http://localhost:${port}`);
 });
 
 
