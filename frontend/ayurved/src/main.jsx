@@ -7,6 +7,7 @@ import ReactDOM from "react-dom/client";
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 import PatientList from "./pages/Patients/PatientList";
+import PatientForm from "./pages/PatientForm"; // 1. Import the new component
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -15,6 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/patients" element={<PatientList />} />
+        <Route path="/add-patient" element={<PatientForm />} /> 
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
