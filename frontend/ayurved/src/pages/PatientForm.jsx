@@ -2,10 +2,16 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  FiUser, FiFileText, FiHeart, FiDroplet, FiPlus, FiUploadCloud, FiPaperclip, FiX
+  FiUser, FiFileText, FiHeart, FiDroplet, FiPlus, FiUploadCloud, FiPaperclip, FiX, FiDownload
 } from "react-icons/fi";
 import { GiStomach, GiSpoon } from "react-icons/gi";
 import { FaRulerVertical, FaWeight, FaBirthdayCake, FaVenusMars } from "react-icons/fa";
+import { db } from "../Firebase";
+import { collection, addDoc, serverTimestamp ,doc, setDoc} from "firebase/firestore";
+import axios from "axios"; 
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
 
 // A reusable input field wrapper for consistent styling and animation
 const InputField = ({ icon, label, children }) => (
@@ -21,6 +27,10 @@ const InputField = ({ icon, label, children }) => (
     </div>
   </div>
 );
+
+const handleViewDietPlan = (patient) => {
+  navigate("/diet-plan", { state: { patient } });
+};
 
 export default function PatientForm() {
   const [formData, setFormData] = useState({
@@ -108,12 +118,186 @@ export default function PatientForm() {
     setFiles(prev => prev.filter((_, i) => i !== index));
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Form Submitted:", { ...formData, attachments: files });
-    // Here you would typically send the data to your backend API
-  };
-  
+
+  const [mealPlan, setMealPlan] = useState(null);
+
+// const handleSubmit = async (e) => {
+//   e.preventDefault();
+
+//   if (!formData.patientNumber) {
+//     alert("Please enter a patient number");
+//     return;
+//   }
+
+//   try {
+//     // Reset the table while generating new chart
+//     setMealPlan(null);
+
+//     // Step 1: Save patient data in Firestore
+//     const patientRef = collection(db, "patient");
+//     const newPatient = await addDoc(patientRef, {
+//       ...formData,
+//       attachments: files.map(file => file.name),
+//       createdAt: serverTimestamp(),
+//     });
+
+//     // Step 2: Call Gemini API to generate chart
+//     const res = await axios.post("http://localhost:3000/generate", {
+//       patientNumber: formData.patientNumber,
+//     });
+
+//     const generatedChart = res.data.response || "No chart generated.";
+
+//     // Step 3: Parse the Gemini response as JSON for the table
+//     let clean = generatedChart.replace(/```json|```/g, "").trim();
+//     let jsonPlan;
+//     try {
+//       jsonPlan = JSON.parse(clean);
+//     } catch (parseErr) {
+//       console.error("Error parsing Gemini response:", parseErr);
+//       jsonPlan = null;
+//     }
+
+//     // Step 4: Save Gemini response in Firestore under this patient
+//     await addDoc(collection(db, "patient", newPatient.id, "charts"), {
+//       chart: generatedChart,
+//       createdAt: serverTimestamp(),
+//     });
+
+//     // Step 5: Update frontend state to display the table
+//     setMealPlan(jsonPlan);
+
+//     alert("✅ Patient data and chart saved successfully!");
+
+//     // Reset form
+//     setFormData({
+//       fullName: "", patientNumber: "", dob: "", age: "", gender: "Male",
+//       height: "", weight: "", bmi: "", prakriti: "pitta", conditions: "",
+//       meds: "", allergies: "", bp: "", bowel: "Normal", waterIntake: "",
+//       dietType: "Vegetarian", mealFreq: 3, foodProperties: [], testPref: [],
+//       goals: "",
+//     });
+//     setFiles([]);
+
+//   } catch (error) {
+//     console.error("❌ Error adding patient:", error);
+//     alert("Failed to save patient data!");
+//   }
+// };
+
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!formData.patientNumber) {
+    alert("Please enter a patient number");
+    return;
+  }
+
+  try {
+    // Reset meal plan in UI
+    setMealPlan(null);
+
+    // Step 1: Save patient basic data
+    const patientRef = collection(db, "patient");
+    const newPatient = await addDoc(patientRef, {
+      ...formData,
+      attachments: files.map(file => file.name),
+      createdAt: serverTimestamp(),
+    });
+
+    // Step 2: Call Gemini API to generate diet chart
+    const res = await axios.post("http://localhost:3000/generate", {
+      patientNumber: formData.patientNumber,
+    });
+
+    const generatedChart = res.data.response || "No chart generated.";
+
+    // Step 3: Parse JSON from Gemini
+    let clean = generatedChart.replace(/```json|```/g, "").trim();
+    let jsonPlan = null;
+    try {
+      jsonPlan = JSON.parse(clean);
+    } catch (parseErr) {
+      console.error("Error parsing Gemini response:", parseErr);
+      jsonPlan = null;
+    }
+
+    // Step 4: Save the diet plan under this patient in Firestore
+    // Firestore allows storing arrays of objects, so jsonPlan works perfectly
+    await setDoc(doc(db, "patient", newPatient.id), {
+      ...formData,
+      attachments: files.map(file => file.name),
+      createdAt: serverTimestamp(),
+      dietPlan: jsonPlan,  // <-- store the generated diet plan here
+    });
+
+    // Step 5: Update UI
+    setMealPlan(jsonPlan);
+
+    alert("✅ Patient data and diet chart saved successfully!");
+
+    // Reset form
+    setFormData({
+      fullName: "",
+      patientNumber: "",
+      dob: "",
+      age: "",
+      gender: "Male",
+      height: "",
+      weight: "",
+      bmi: "",
+      prakriti: "pitta",
+      conditions: "",
+      meds: "",
+      allergies: "",
+      bp: "",
+      bowel: "Normal",
+      waterIntake: "",
+      dietType: "Vegetarian",
+      mealFreq: 3,
+      foodProperties: [],
+      testPref: [],
+      goals: "",
+    });
+    setFiles([]);
+  } catch (error) {
+    console.error("❌ Error saving patient or diet chart:", error);
+    alert("Failed to save patient data or diet chart!");
+  }
+};
+
+
+const downloadPDF = () => {
+  if (!mealPlan) return;
+
+  // Initialize jsPDF
+  const doc = new jsPDF();
+
+  // Prepare table data
+  const head = [["Day", "Breakfast", "Lunch", "Dinner"]];
+  const body = Object.entries(mealPlan).map(([day, meals]) => [
+    day,
+    meals.breakfast.map(d => d.name).join(", "),
+    meals.lunch.map(d => d.name).join(", "),
+    meals.dinner.map(d => d.name).join(", "),
+  ]);
+
+  // Generate table
+  autoTable(doc, {
+    head,
+    body,
+    startY: 20,
+    styles: { fontSize: 10 },
+    headStyles: { fillColor: [34, 197, 94] }, // green header
+  });
+
+  // Save PDF
+  doc.save("meal-plan.pdf");
+};
+
+
+
   // Animation variants for Framer Motion
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -297,6 +481,49 @@ export default function PatientForm() {
           </motion.div>
         </form>
       </main>
+
+      {mealPlan && (
+        <div>
+  <table className="w-full border-collapse border border-green-300 bg-white shadow-lg rounded-lg mt-6">
+    <thead>
+      <tr className="bg-green-600 text-white">
+        <th className="border border-green-300 px-4 py-2">Day</th>
+        <th className="border border-green-300 px-4 py-2">Breakfast</th>
+        <th className="border border-green-300 px-4 py-2">Lunch</th>
+        <th className="border border-green-300 px-4 py-2">Dinner</th>
+      </tr>
+    </thead>
+    <tbody>
+      {Object.entries(mealPlan).map(([day, meals]) => (
+        <tr key={day} className="text-center hover:bg-green-50">
+          <td className="border border-green-300 px-4 py-2 font-semibold text-green-700">{day}</td>
+          {["breakfast", "lunch", "dinner"].map((mealType) => (
+            <td key={mealType} className="border border-green-300 px-4 py-2">
+              {meals[mealType].map((dish, i) => (
+                <div key={i}>
+                  <strong>{dish.name}</strong> ({dish.calories} kcal, {dish.protein}g protein)
+                </div>
+              ))}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+ <button 
+      onClick={downloadPDF} 
+      className="flex items-center gap-2 mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+    >
+      <FiDownload /> Download PDF
+    </button>
+
+</div>
+  
+)
+
+}
+
     </div>
   );
 }
