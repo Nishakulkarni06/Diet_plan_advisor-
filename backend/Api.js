@@ -1,206 +1,361 @@
-import express from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
-import cors from "cors";
-import { db } from "./firebase.js";
+  // import express from "express";
+  // import multer from "multer";
+  // import cors from "cors";
+  // import axios from "axios";
+  // import csv from "csvtojson"; // npm install csvtojson
+
+  // const app = express();
+  // app.use(cors());
+
+  // const upload = multer();
+
+  // app.post(
+  //   "/generate",
+  //   upload.fields([{ name: "patientData" }, { name: "foodData" }]),
+  //   async (req, res) => {
+  //     try {
+  //       if (!req.files?.patientData || !req.files?.foodData) {
+  //         return res.status(400).json({ error: "Both files are required" });
+  //       }
+
+  //       // Parse patient JSON
+  //       const patientJson = JSON.parse(req.files.patientData[0].buffer.toString("utf-8"));
+
+  //       // Convert CSV to JSON
+  //       const foodCsvBuffer = req.files.foodData[0].buffer.toString("utf-8");
+  //       const foodJson = await csv().fromString(foodCsvBuffer);
+
+  //       // Combine both
+  //       const combinedData = {
+  //         ...patientJson,
+  //         foodData: foodJson,
+  //       };
+
+  //       // Send combined JSON to API
+  //       const response = await axios.post(
+  //         "https://fourdietapi-1.onrender.com/generate_plan",
+  //         combinedData,
+  //         {
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //             "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+  //           },
+  //         }
+  //       );
+
+  //       // Forward API response to frontend
+  //       res.json(response.data);
+
+  //     } catch (err) {
+  //       console.error("Backend error:", err.response?.data || err.message);
+  //       res.status(500).json({ error: "Failed to generate plan" });
+  //     }
+  //   }
+  // );
+
+  // app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
 
 
-dotenv.config({ path: "./Api.env" });
 
-const app = express();
-const port = process.env.PORT || 3000;
+// backend/index.js
+// backend/index.js
+// server.js
+// import express from "express";
+// import cors from "cors";
+// import admin from "firebase-admin";
+// import axios from "axios";
+// import fs from "fs";
 
-app.use(cors());
-app.use(express.json());
+// // Initialize Express
+// const app = express();
+// app.use(cors());
+// app.use(express.json());
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// // --- Initialize Firebase Admin ---
+// const serviceAccount = JSON.parse(fs.readFileSync("./serviceAccountKey.json", "utf8"));
 
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
+
+// const db = admin.firestore();
+
+// // --- Generate Diet Plan & Save to Firestore ---
 // app.post("/generate", async (req, res) => {
 //   try {
-//     // ✅ No prompt needed from frontend now
+//     const patientData = req.body;
+//     if (!patientData) return res.status(400).json({ error: "Patient data required" });
 
-//     // Read JSON files
-//     const file1Path = path.join(process.cwd(), "patient.json");
-//     const file2Path = path.join(process.cwd(), "food.json");
+//     // Fetch food items
+//     const snapshot = await db.collection("foodItems").get();
+//     const foodData = snapshot.docs.map(doc => doc.data());
 
-//     const file1Data = JSON.parse(fs.readFileSync(file1Path, "utf-8"));
-//     const file2Data = JSON.parse(fs.readFileSync(file2Path, "utf-8"));
+//     // Combine patient + food data
+//     const combinedData = { ...patientData, foodData };
 
-//     // Combine data into a single string
-//     const combinedInput = `
-// Patient Data: ${JSON.stringify(file1Data, null, 2)}
-// Food Dataset: ${JSON.stringify(file2Data, null, 2)}
-// `;
+//     // Call external diet API
+//     const response = await axios.post(
+//       "https://fourdietapi-1.onrender.com/generate_plan",
+//       combinedData,
+//       {
+//         headers: {
+//           "Content-Type": "application/json",
+//           "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+//         },
+//       }
+//     );
 
-//     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+//     const dietPlan = response.data;
 
-//     // ✅ Fixed instruction, no need to pass anything from frontend
-//     const chat = model.startChat({
-//       history: [
-//         {
-//           role: "user",
-//           parts: [
-//             {
-//               text: `You are given two JSON files: 
-// 1) Ayurvedic dish dataset (food.json)
-// 2) Patient profile (patient.json)
-
-// Generate a 7-day meal plan as a JSON object with this exact structure:
-// {
-//   "Monday": { "breakfast": ["Dish1", "Dish2"], "lunch": ["Dish3"], "dinner": ["Dish4"] },
-//   "Tuesday": { ... },
-//   ...
-//   "Sunday": { ... }
-// }
-
-//  Rules:
-// - Only output valid JSON.
-// - Each day must have breakfast, lunch, dinner keys.
-// - Each value must be an array of dish names from food.json.
-// - No explanation, no extra text — just the JSON object.
-
-// Now create the plan based on the patient's health data.`
-//             }
-//           ]
-//         }
-//       ]
+//     // --- Save the plan to Firestore ---
+//     await db.collection("dietPlans").add({
+//       patient: patientData.personalInfo,
+//       vitals: patientData.vitals,
+//       lifestyle: patientData.lifestyle,
+//       ayurvedaProfile: patientData.ayurvedaProfile,
+//       dietaryPreferences: patientData.dietaryPreferences,
+//       goals: patientData.goals,
+//       dietPlan,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
 //     });
 
-//     const result = await chat.sendMessage(combinedInput);
-//     const text = result.response.text();
+//     // Return a consistent structure to frontend
+//     res.json({
+//       recommendedMeals: dietPlan.recommendedMeals || [],
+//       fullPlan: dietPlan,
+//     });
 
-//     res.status(200).json({ response: text });
-//   } catch (error) {
-//     console.error("Error:", error);
-//     res.status(500).json({ error: "An internal server error occurred." });
+//     // Fetch latest saved diet plan
+// app.get("/fetch-latest-plan", async (req, res) => {
+//   try {
+//     const snapshot = await db.collection("dietPlans").orderBy("createdAt", "desc").limit(1).get();
+//     if (snapshot.empty) return res.json({ recommendedMeals: [] });
+//     const doc = snapshot.docs[0].data();
+//     res.json(doc.dietPlan); // send dietPlan object
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Failed to fetch latest plan" });
 //   }
 // });
 
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Failed to generate and save plan" });
+//   }
+// });
 
+// app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
+
+
+
+
+
+// import express from "express";
+// import cors from "cors";
+// import admin from "firebase-admin";
+// import axios from "axios";
+// import fs from "fs";
+
+// // Initialize Express
+// const app = express();
+// app.use(cors());
+// app.use(express.json());
+
+// // --- Initialize Firebase Admin ---
+// const serviceAccount = JSON.parse(fs.readFileSync("./serviceAccountKey.json", "utf8"));
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
+
+// const db = admin.firestore();
+
+// // --- Generate Diet Plan & Save to Firestore ---
+// app.post("/generate", async (req, res) => {
+//   try {
+//     const patientData = req.body;
+//     if (!patientData) return res.status(400).json({ error: "Patient data required" });
+
+//     // Fetch food items
+//     const snapshot = await db.collection("foodItems").get();
+//     const foodData = snapshot.docs.map(doc => doc.data());
+
+//     // Combine patient + food data
+//     const combinedData = { ...patientData, foodData };
+
+//     // Call external diet API
+//     const response = await axios.post(
+//       "https://fourdietapi-1.onrender.com/generate_plan",
+//       combinedData,
+//       {
+//         headers: {
+//           "Content-Type": "application/json",
+//           "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+//         },
+//         timeout: 25000,
+//       }
+//     );
+
+//     const dietPlan = response.data;
+
+//     // --- Save the plan to Firestore ---
+//     await db.collection("dietPlans").add({
+//       patient: patientData.personalInfo,
+//       vitals: patientData.vitals,
+//       lifestyle: patientData.lifestyle,
+//       ayurvedaProfile: patientData.ayurvedaProfile,
+//       dietaryPreferences: patientData.dietaryPreferences,
+//       goals: patientData.goals,
+//       dietPlan,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     });
+
+//     // Return a consistent structure to frontend
+//     return res.json({
+//       recommendedMeals: dietPlan.recommendedMeals || [],
+//       fullPlan: dietPlan,
+//     });
+
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Failed to generate and save plan" });
+//   }
+// });
+
+// // --- Fetch latest saved diet plan (top-level route) ---
+// app.get("/fetch-latest-plan", async (req, res) => {
+//   try {
+//     const snapshot = await db.collection("dietPlans")
+//       .orderBy("createdAt", "desc")
+//       .limit(1)
+//       .get();
+
+//     if (snapshot.empty) return res.json({ recommendedMeals: [] });
+
+//     const doc = snapshot.docs[0].data();
+
+//     // doc.dietPlan should be whatever you saved earlier. Normalize response:
+//     const dietPlan = doc.dietPlan || {};
+//     const recommendedMeals = dietPlan.recommendedMeals || dietPlan.recommendations || [];
+
+//     // Return structure frontend expects (recommendedMeals + fullPlan)
+//     res.json({
+//       recommendedMeals,
+//       fullPlan: dietPlan
+//     });
+
+//   } catch (err) {
+//     console.error("Fetch latest plan error:", err);
+//     res.status(500).json({ error: "Failed to fetch latest plan" });
+//   }
+// });
+
+// app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
+
+
+
+
+
+
+import express from "express";
+import cors from "cors";
+import admin from "firebase-admin";
+import axios from "axios";
+import fs from "fs";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Initialize Firebase Admin
+const serviceAccount = JSON.parse(fs.readFileSync("./serviceAccountKey.json", "utf8"));
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+// --- Generate Diet Plan & Save to Firestore ---
 app.post("/generate", async (req, res) => {
   try {
-    const { patientNumber } = req.body;
-    console.log("Received patientNumber from frontend:", patientNumber);
+    const patientData = req.body;
+    if (!patientData) return res.status(400).json({ error: "Patient data required" });
 
-    if (!patientNumber) {
-      return res.status(400).json({ error: "Patient number is required" });
+    // Fetch food items
+    const snapshot = await db.collection("foodItems").get();
+    const foodData = snapshot.docs.map(doc => doc.data());
+
+    // Combine patient + food data
+    const combinedData = { ...patientData, foodData };
+
+    // Call external diet API
+    const response = await axios.post(
+      "https://fourdietapi-1.onrender.com/generate_plan",
+      combinedData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+        },
+        timeout: 25000,
+      }
+    );
+
+    const dietPlan = response.data;
+
+    // --- Ensure recommendedMeals exists ---
+    let recommendedMeals = dietPlan.recommendedMeals;
+    if (!recommendedMeals || recommendedMeals.length === 0) {
+      recommendedMeals = dietPlan.weekly_plan || dietPlan.recommendations || [];
     }
 
-    // // Fetch patient data from Firestore
-    // const patientRef = db.collection("patient").doc(patientNumber);
-    // const patientDoc = await patientRef.get();
-
-    //  console.log("Patient document exists?", patientDoc.exists);
-
-    // if (!patientDoc.exists) {
-    //   return res.status(404).json({ error: "Patient not found" });
-    // }
-
-    // const patientData = patientDoc.data();
-
-const patientQuery = await db.collection("patient")
-  .where("patientNumber", "==", patientNumber)
-  .limit(1)
-  .get();
-
-if (patientQuery.empty) {
-  return res.status(404).json({ error: "Patient not found" });
-}
-
-const patientData = patientQuery.docs[0].data();
-
-    // Read food.json (can also move this to Firestore later)
-    const file2Path = path.join(process.cwd(), "food.json");
-    const foodData = JSON.parse(fs.readFileSync(file2Path, "utf-8"));
-
-    // Combine into a single string for Gemini
-    const combinedInput = `
-Patient Data: ${JSON.stringify(patientData, null, 2)}
-Food Dataset: ${JSON.stringify(foodData, null, 2)}
-`;
-
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [
-            {
-              text:`You are given two JSON inputs:
-
-1. Ayurvedic dish dataset (food.json) with fields: 
-   - name
-   - category (breakfast/lunch/dinner)
-   - type (Vata/Pitta/Kapha)
-   - rasa (taste: Sweet, Sour, Salty, Bitter, Pungent, Astringent)
-   - guna (Light/Heavy, Oily/Dry, etc.)
-   - virya (Heating/Cooling)
-   - nutrientInfo (calories, protein)
-
-2. Patient profile JSON with fields: 
-   - age
-   - gender
-   - dietaryPreferences
-   - mealFrequency
-   - waterIntake
-   - healthGoals
-
-Task:
-Generate a 7-day meal plan as a JSON object with this exact structure:
-
-{
-  "Monday": { 
-    "breakfast": [
-      { "name": "Dish1", "calories": 280, "protein": 9, "rasa": ["Sweet","Astringent"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Balances Pitta-Vata" }
-    ],
-    "lunch": [
-      { "name": "Dish2", "calories": 320, "protein": 10, "rasa": ["Sweet","Bitter"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Reduces Pitta" }
-    ],
-    "dinner": [
-      { "name": "Dish3", "calories": 340, "protein": 12, "rasa": ["Sweet"], "guna": "Light", "virya": "Cooling", "doshaEffect": "Balances All (Tridoshic)" }
-    ]
-  },
-  "Tuesday": { ... },
-  ...
-  "Sunday": { ... }
-}
-
-Rules:
-- Only output valid JSON, no explanation or extra text.
-- Each day must have "breakfast", "lunch", and "dinner" keys.
-- Each meal array must include at least one dish object.
-- Dishes must be Ayurveda-compliant (match dosha balance with patient’s profile).
-- Respect dietaryPreferences (e.g., vegetarian, vegan, no onion/garlic).
-- Ensure nutritionally balanced meals with variety across the week.
-- Do not repeat the same dish more than twice in the week.
-Now create the plan based on the patient's health data.`
-            }
-          ]
-        }
-      ]
+    // --- Save to Firestore ---
+    await db.collection("dietPlans").add({
+      patient: patientData.personalInfo,
+      vitals: patientData.vitals,
+      lifestyle: patientData.lifestyle,
+      ayurvedaProfile: patientData.ayurvedaProfile,
+      dietaryPreferences: patientData.dietaryPreferences,
+      goals: patientData.goals,
+      dietPlan,
+      recommendedMeals, // Save normalized array
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const result = await chat.sendMessage(combinedInput);
-    const text = result.response.text();
+    // Return consistent structure to frontend
+    return res.json({
+      recommendedMeals,
+      fullPlan: dietPlan,
+    });
 
-    res.status(200).json({ response: text });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "An internal server error occurred." });
+  } catch (err) {
+    console.error("Backend error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to generate and save plan" });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Gemini API server is running! Use POST /generate to interact.");
+// --- Fetch latest saved diet plan ---
+app.get("/fetch-latest-plan", async (req, res) => {
+  try {
+    const snapshot = await db.collection("dietPlans")
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return res.json({ recommendedMeals: [] });
+
+    const doc = snapshot.docs[0].data();
+
+    res.json({
+      recommendedMeals: doc.recommendedMeals || [],
+      fullPlan: doc.dietPlan || {},
+    });
+
+  } catch (err) {
+    console.error("Fetch latest plan error:", err);
+    res.status(500).json({ error: "Failed to fetch latest plan" });
+  }
 });
 
-console.log("Gemini API Key:", process.env.GEMINI_API_KEY ? "Loaded ✅" : "Not Loaded ❌");
-
-app.listen(port, () => {
-  console.log(` Server running at http://localhost:${port}`);
-});
-
-
+app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
