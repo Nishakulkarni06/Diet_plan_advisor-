@@ -298,7 +298,7 @@ app.post("/generate", async (req, res) => {
           "Content-Type": "application/json",
           "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
         },
-        timeout: 25000,
+        timeout: 60000,
       }
     );
 

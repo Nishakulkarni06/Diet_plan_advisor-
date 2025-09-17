@@ -73,19 +73,40 @@ const [showModal, setShowModal] = useState(false);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   useEffect(() => {
+  // const fetchRecentPatients = async () => {
+  //   try {
+  //     const q = query(collection(db, "dietPlans"), orderBy("createdAt", "desc"), limit(4));
+  //     const querySnapshot = await getDocs(q);
+  //     const patientsData = querySnapshot.docs.map(doc => ({
+  //       id: doc.id,
+  //       ...doc.data()
+  //     }));
+  //     setRecentPatients(patientsData);
+  //   } catch (error) {
+  //     console.error("Error fetching recent patients:", error);
+  //   }
+  // };
   const fetchRecentPatients = async () => {
-    try {
-      const q = query(collection(db, "patient"), orderBy("createdAt", "desc"), limit(4));
-      const querySnapshot = await getDocs(q);
-      const patientsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRecentPatients(patientsData);
-    } catch (error) {
-      console.error("Error fetching recent patients:", error);
-    }
-  };
+  try {
+    const q = query(
+      collection(db, "dietPlans"),
+      orderBy("createdAt", "desc"),
+      limit(4)
+    );
+    const querySnapshot = await getDocs(q);
+    const patientsData = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      fullName: doc.data().patient?.fullName || "No Name",
+      dob: doc.data().patient?.dob || "",
+      gender: doc.data().patient?.gender || "",
+      ...doc.data()
+    }));
+    setRecentPatients(patientsData);
+  } catch (error) {
+    console.error("Error fetching recent patients:", error);
+  }
+};
+
 
   fetchRecentPatients();
 }, []);
