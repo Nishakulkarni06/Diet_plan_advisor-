@@ -1,529 +1,1743 @@
-// src/components/PatientForm.jsx
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import {
-  FiUser, FiFileText, FiHeart, FiDroplet, FiPlus, FiUploadCloud, FiPaperclip, FiX, FiDownload
-} from "react-icons/fi";
-import { GiStomach, GiSpoon } from "react-icons/gi";
-import { FaRulerVertical, FaWeight, FaBirthdayCake, FaVenusMars } from "react-icons/fa";
-import { db } from "../Firebase";
-import { collection, addDoc, serverTimestamp ,doc, setDoc} from "firebase/firestore";
-import axios from "axios"; 
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+// import React, { useState } from "react";
 
+// export default function PatientForm() {
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "",
+//       dob: "",
+//       gender: "",
+//       age: "",
+//       contact: { phone: "", email: "" },
+//     },
+//     vitals: {
+//       height_cm: "",
+//       weight_kg: "",
+//       bmi: "",
+//       bp: "",
+//       pulseRate: "",
+//       respirationRate: "",
+//       temperature: "",
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "",
+//       doshaImbalance: "",
+//       agni: "",
+//       tastePref: [],
+//       foodProperties: [],
+//       season: "",
+//     },
+//     lifestyle: {
+//       dietType: "",
+//       mealFreq: "",
+//       waterIntake_l: "",
+//       bowel: "",
+//       sleepPattern: "",
+//       physicalActivity: "",
+//       stressLevel: "",
+//     },
+//     medicalInfo: {
+//       allergies: [],
+//       conditions: [],
+//       medications: [],
+//       labReports: {
+//         bloodSugarFasting: "",
+//         cholesterol: "",
+//         hb: "",
+//       },
+//     },
+//     dietaryPreferences: {
+//       avoidFoods: [],
+//       preferredFoods: [],
+//       restrictedByReligion: "No",
+//     },
+//     goals: { shortTerm: "", longTerm: "" },
+//     attachments: [],
+//     calculated: { age: "", bmi: "" },
+//   });
 
-// A reusable input field wrapper for consistent styling and animation
-const InputField = ({ icon, label, children }) => (
-  <div className="relative">
-    <label className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-      {label}
-    </label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-green-500">
-        {icon}
-      </div>
-      {children}
-    </div>
-  </div>
-);
-
-const handleViewDietPlan = (patient) => {
-  navigate("/diet-plan", { state: { patient } });
-};
-
-export default function PatientForm() {
-  const [formData, setFormData] = useState({
-    fullName: "", patientNumber: "", dob: "", age: "", gender: "Male", height: "", weight: "",
-    bmi: "", prakriti: "pitta", conditions: "", meds: "", allergies: "", bp: "", bowel: "Normal",
-    waterIntake: "", dietType: "Vegetarian", mealFreq: 3, foodProperties: [], testPref: [],
-    goals: "",
-  });
-
-  const [files, setFiles] = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Auto-calculate Age from Date of Birth
-  useEffect(() => {
-    if (formData.dob) {
-      const birthDate = new Date(formData.dob);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      setFormData(prev => ({ ...prev, age: age > 0 ? age : "" }));
-    }
-  }, [formData.dob]);
-
-  // Auto-calculate BMI from Height and Weight
-  useEffect(() => {
-    const heightM = parseFloat(formData.height) / 100;
-    const weightKg = parseFloat(formData.weight);
-    if (heightM > 0 && weightKg > 0) {
-      const bmiValue = (weightKg / (heightM * heightM)).toFixed(2);
-      setFormData(prev => ({ ...prev, bmi: bmiValue }));
-    } else {
-      setFormData(prev => ({ ...prev, bmi: "" }));
-    }
-  }, [formData.height, formData.weight]);
-
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleCheckboxChange = (e, category) => {
-    const { value, checked } = e.target;
-    setFormData(prev => {
-      const currentValues = prev[category];
-      if (checked) {
-        return { ...prev, [category]: [...currentValues, value] };
-      } else {
-        return { ...prev, [category]: currentValues.filter(item => item !== value) };
-      }
-    });
-  };
-
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    const newFiles = [...e.dataTransfer.files];
-    if (newFiles && newFiles.length > 0) {
-      setFiles(prev => [...prev, ...newFiles]);
-    }
-  };
-  
-  const removeFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  }
-
-
-  const [mealPlan, setMealPlan] = useState(null);
-
-// const handleSubmit = async (e) => {
-//   e.preventDefault();
-
-//   if (!formData.patientNumber) {
-//     alert("Please enter a patient number");
-//     return;
-//   }
-
-//   try {
-//     // Reset the table while generating new chart
-//     setMealPlan(null);
-
-//     // Step 1: Save patient data in Firestore
-//     const patientRef = collection(db, "patient");
-//     const newPatient = await addDoc(patientRef, {
-//       ...formData,
-//       attachments: files.map(file => file.name),
-//       createdAt: serverTimestamp(),
+//   // --- Handle Nested Updates ---
+//   const handleChange = (path, value) => {
+//     setFormData((prev) => {
+//       const updated = { ...prev };
+//       let ref = updated;
+//       const keys = path.split(".");
+//       keys.slice(0, -1).forEach((k) => {
+//         if (!ref[k]) ref[k] = {};
+//         ref = ref[k];
+//       });
+//       ref[keys[keys.length - 1]] = value;
+//       return updated;
 //     });
+//   };
 
-//     // Step 2: Call Gemini API to generate chart
-//     const res = await axios.post("http://localhost:3000/generate", {
-//       patientNumber: formData.patientNumber,
-//     });
-
-//     const generatedChart = res.data.response || "No chart generated.";
-
-//     // Step 3: Parse the Gemini response as JSON for the table
-//     let clean = generatedChart.replace(/```json|```/g, "").trim();
-//     let jsonPlan;
-//     try {
-//       jsonPlan = JSON.parse(clean);
-//     } catch (parseErr) {
-//       console.error("Error parsing Gemini response:", parseErr);
-//       jsonPlan = null;
+//   // --- Auto Calculate Age & BMI ---
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const dob = new Date(formData.personalInfo.dob);
+//       const age = new Date().getFullYear() - dob.getFullYear();
+//       handleChange("personalInfo.age", age);
+//       handleChange("calculated.age", age);
 //     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       handleChange("vitals.bmi", bmi);
+//       handleChange("calculated.bmi", bmi);
+//     }
+//   };
 
-//     // Step 4: Save Gemini response in Firestore under this patient
-//     await addDoc(collection(db, "patient", newPatient.id, "charts"), {
-//       chart: generatedChart,
-//       createdAt: serverTimestamp(),
-//     });
+//   // --- Handle File Upload ---
+//   const handleFileUpload = (e) => {
+//     const files = Array.from(e.target.files).map((file) => ({
+//       name: file.name,
+//       size: file.size,
+//       type: file.type,
+//     }));
+//     handleChange("attachments", files);
+//   };
 
-//     // Step 5: Update frontend state to display the table
-//     setMealPlan(jsonPlan);
+//   // --- Submit ---
+// const handleSubmit = async () => {
+//   try {
+//     setLoading(true);
 
-//     alert("✅ Patient data and chart saved successfully!");
+//     const res = await axios.post("http://localhost:3000/generate", formData);
 
-//     // Reset form
-//     setFormData({
-//       fullName: "", patientNumber: "", dob: "", age: "", gender: "Male",
-//       height: "", weight: "", bmi: "", prakriti: "pitta", conditions: "",
-//       meds: "", allergies: "", bp: "", bowel: "Normal", waterIntake: "",
-//       dietType: "Vegetarian", mealFreq: 3, foodProperties: [], testPref: [],
-//       goals: "",
-//     });
-//     setFiles([]);
-
-//   } catch (error) {
-//     console.error("❌ Error adding patient:", error);
-//     alert("Failed to save patient data!");
+//     setPlan(res.data); // plan used in your Diet Chart UI
+//     alert("Diet plan generated and saved!");
+//   } catch (err) {
+//     console.error(err);
+//     alert("Error generating diet plan");
+//   } finally {
+//     setLoading(false);
 //   }
 // };
 
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+//       {/* --- Step 1: Personal Info --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 1: Personal Info</h2>
+//         <input
+//           type="text"
+//           placeholder="Full Name"
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.fullName}
+//           onChange={(e) =>
+//             handleChange("personalInfo.fullName", e.target.value)
+//           }
+//         />
+//         <input
+//           type="date"
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.dob}
+//           onChange={(e) => handleChange("personalInfo.dob", e.target.value)}
+//           onBlur={handleAutoCalc}
+//         />
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.gender}
+//           onChange={(e) => handleChange("personalInfo.gender", e.target.value)}
+//         >
+//           <option value="">Select Gender</option>
+//           <option>Male</option>
+//           <option>Female</option>
+//           <option>Other</option>
+//         </select>
+//         <input
+//           type="number"
+//           placeholder="Age"
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.age}
+//           readOnly
+//         />
+//         <input
+//           type="text"
+//           placeholder="Phone"
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.contact.phone}
+//           onChange={(e) =>
+//             handleChange("personalInfo.contact.phone", e.target.value)
+//           }
+//         />
+//         <input
+//           type="email"
+//           placeholder="Email"
+//           className="border p-2 w-full"
+//           value={formData.personalInfo.contact.email}
+//           onChange={(e) =>
+//             handleChange("personalInfo.contact.email", e.target.value)
+//           }
+//         />
+//       </div>
 
-  if (!formData.patientNumber) {
-    alert("Please enter a patient number");
-    return;
-  }
+//       {/* --- Step 2: Vitals --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 2: Vitals</h2>
+//         <input
+//           type="number"
+//           placeholder="Height (cm)"
+//           className="border p-2 w-full"
+//           value={formData.vitals.height_cm}
+//           onChange={(e) => handleChange("vitals.height_cm", +e.target.value)}
+//           onBlur={handleAutoCalc}
+//         />
+//         <input
+//           type="number"
+//           placeholder="Weight (kg)"
+//           className="border p-2 w-full"
+//           value={formData.vitals.weight_kg}
+//           onChange={(e) => handleChange("vitals.weight_kg", +e.target.value)}
+//           onBlur={handleAutoCalc}
+//         />
+//         <input
+//           type="text"
+//           placeholder="BMI"
+//           className="border p-2 w-full"
+//           value={formData.vitals.bmi}
+//           readOnly
+//         />
+//         <input
+//           type="text"
+//           placeholder="Blood Pressure"
+//           className="border p-2 w-full"
+//           value={formData.vitals.bp}
+//           onChange={(e) => handleChange("vitals.bp", e.target.value)}
+//         />
+//         <input
+//           type="number"
+//           placeholder="Pulse Rate"
+//           className="border p-2 w-full"
+//           value={formData.vitals.pulseRate}
+//           onChange={(e) => handleChange("vitals.pulseRate", +e.target.value)}
+//         />
+//         <input
+//           type="number"
+//           placeholder="Respiration Rate"
+//           className="border p-2 w-full"
+//           value={formData.vitals.respirationRate}
+//           onChange={(e) =>
+//             handleChange("vitals.respirationRate", +e.target.value)
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Temperature (°F/°C)"
+//           className="border p-2 w-full"
+//           value={formData.vitals.temperature}
+//           onChange={(e) => handleChange("vitals.temperature", e.target.value)}
+//         />
+//       </div>
 
-  try {
-    // Reset meal plan in UI
-    setMealPlan(null);
+//       {/* --- Step 3: Ayurveda Profile --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 3: Ayurveda Profile</h2>
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.prakriti}
+//           onChange={(e) => handleChange("ayurvedaProfile.prakriti", e.target.value)}
+//         >
+//           <option value="">Select Prakriti</option>
+//           <option>Vata</option>
+//           <option>Pitta</option>
+//           <option>Kapha</option>
+//           <option>Mixed</option>
+//         </select>
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.doshaImbalance}
+//           onChange={(e) =>
+//             handleChange("ayurvedaProfile.doshaImbalance", e.target.value)
+//           }
+//         >
+//           <option value="">Select Dosha Imbalance</option>
+//           <option>↑ Vata</option>
+//           <option>↑ Pitta</option>
+//           <option>↑ Kapha</option>
+//           <option>Balanced</option>
+//         </select>
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.agni}
+//           onChange={(e) => handleChange("ayurvedaProfile.agni", e.target.value)}
+//         >
+//           <option value="">Select Agni</option>
+//           <option>Manda</option>
+//           <option>Sama</option>
+//           <option>Tikshna</option>
+//           <option>Vishama</option>
+//         </select>
+//         <input
+//           type="text"
+//           placeholder="Taste Preferences (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.tastePref.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "ayurvedaProfile.tastePref",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Food Properties (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.foodProperties.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "ayurvedaProfile.foodProperties",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.season}
+//           onChange={(e) => handleChange("ayurvedaProfile.season", e.target.value)}
+//         >
+//           <option value="">Select Season</option>
+//           <option>Summer</option>
+//           <option>Winter</option>
+//           <option>Rainy</option>
+//           <option>All</option>
+//         </select>
+//       </div>
 
-    // Step 1: Save patient basic data
-    const patientRef = collection(db, "patient");
-    const newPatient = await addDoc(patientRef, {
-      ...formData,
-      attachments: files.map(file => file.name),
-      createdAt: serverTimestamp(),
-    });
+//       {/* --- Step 4: Lifestyle --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 4: Lifestyle</h2>
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.dietType}
+//           onChange={(e) => handleChange("lifestyle.dietType", e.target.value)}
+//         >
+//           <option value="">Select Diet Type</option>
+//           <option>Vegetarian</option>
+//           <option>Non-Vegetarian</option>
+//           <option>Vegan</option>
+//         </select>
+//         <input
+//           type="number"
+//           placeholder="Meal Frequency"
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.mealFreq}
+//           onChange={(e) => handleChange("lifestyle.mealFreq", +e.target.value)}
+//         />
+//         <input
+//           type="number"
+//           placeholder="Water Intake (litres/day)"
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.waterIntake_l}
+//           onChange={(e) => handleChange("lifestyle.waterIntake_l", +e.target.value)}
+//         />
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.bowel}
+//           onChange={(e) => handleChange("lifestyle.bowel", e.target.value)}
+//         >
+//           <option value="">Bowel Habits</option>
+//           <option>Normal</option>
+//           <option>Constipated</option>
+//           <option>Loose</option>
+//         </select>
+//         <input
+//           type="text"
+//           placeholder="Sleep Pattern"
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.sleepPattern}
+//           onChange={(e) => handleChange("lifestyle.sleepPattern", e.target.value)}
+//         />
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.physicalActivity}
+//           onChange={(e) =>
+//             handleChange("lifestyle.physicalActivity", e.target.value)
+//           }
+//         >
+//           <option value="">Physical Activity</option>
+//           <option>Low</option>
+//           <option>Moderate</option>
+//           <option>High</option>
+//         </select>
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.lifestyle.stressLevel}
+//           onChange={(e) => handleChange("lifestyle.stressLevel", e.target.value)}
+//         >
+//           <option value="">Stress Level</option>
+//           <option>Low</option>
+//           <option>Moderate</option>
+//           <option>High</option>
+//         </select>
+//       </div>
 
-    // Step 2: Call Gemini API to generate diet chart
-    const res = await axios.post("http://localhost:3000/generate", {
-      patientNumber: formData.patientNumber,
-    });
+//       {/* --- Step 5: Medical Info --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 5: Medical Info</h2>
+//         <input
+//           type="text"
+//           placeholder="Allergies (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.allergies.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "medicalInfo.allergies",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Conditions (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.conditions.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "medicalInfo.conditions",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Medications (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.medications.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "medicalInfo.medications",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Blood Sugar Fasting"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.labReports.bloodSugarFasting}
+//           onChange={(e) =>
+//             handleChange("medicalInfo.labReports.bloodSugarFasting", e.target.value)
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Cholesterol"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.labReports.cholesterol}
+//           onChange={(e) =>
+//             handleChange("medicalInfo.labReports.cholesterol", e.target.value)
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="HB"
+//           className="border p-2 w-full"
+//           value={formData.medicalInfo.labReports.hb}
+//           onChange={(e) => handleChange("medicalInfo.labReports.hb", e.target.value)}
+//         />
+//       </div>
 
-    const generatedChart = res.data.response || "No chart generated.";
+//       {/* --- Step 6: Dietary Preferences & Goals --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">
+//           Step 6: Dietary Preferences & Goals
+//         </h2>
+//         <input
+//           type="text"
+//           placeholder="Foods to Avoid (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.dietaryPreferences.avoidFoods.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "dietaryPreferences.avoidFoods",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <input
+//           type="text"
+//           placeholder="Preferred Foods (comma separated)"
+//           className="border p-2 w-full"
+//           value={formData.dietaryPreferences.preferredFoods.join(", ")}
+//           onChange={(e) =>
+//             handleChange(
+//               "dietaryPreferences.preferredFoods",
+//               e.target.value.split(",").map((s) => s.trim())
+//             )
+//           }
+//         />
+//         <select
+//           className="border p-2 w-full"
+//           value={formData.dietaryPreferences.restrictedByReligion}
+//           onChange={(e) =>
+//             handleChange("dietaryPreferences.restrictedByReligion", e.target.value)
+//           }
+//         >
+//           <option>No</option>
+//           <option>Yes</option>
+//         </select>
+//         <input
+//           type="text"
+//           placeholder="Short-term Goal"
+//           className="border p-2 w-full"
+//           value={formData.goals.shortTerm}
+//           onChange={(e) => handleChange("goals.shortTerm", e.target.value)}
+//         />
+//         <input
+//           type="text"
+//           placeholder="Long-term Goal"
+//           className="border p-2 w-full"
+//           value={formData.goals.longTerm}
+//           onChange={(e) => handleChange("goals.longTerm", e.target.value)}
+//         />
+//       </div>
 
-    // Step 3: Parse JSON from Gemini
-    let clean = generatedChart.replace(/```json|```/g, "").trim();
-    let jsonPlan = null;
-    try {
-      jsonPlan = JSON.parse(clean);
-    } catch (parseErr) {
-      console.error("Error parsing Gemini response:", parseErr);
-      jsonPlan = null;
-    }
+//       {/* --- Step 7: Attachments --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 7: Attachments</h2>
+//         <input
+//           type="file"
+//           multiple
+//           className="border p-2 w-full"
+//           onChange={handleFileUpload}
+//         />
+//         <ul className="list-disc ml-5">
+//           {formData.attachments.map((file, i) => (
+//             <li key={i}>
+//               {file.name} ({(file.size / 1024).toFixed(1)} KB)
+//             </li>
+//           ))}
+//         </ul>
+//       </div>
 
-    // Step 4: Save the diet plan under this patient in Firestore
-    // Firestore allows storing arrays of objects, so jsonPlan works perfectly
-    await setDoc(doc(db, "patient", newPatient.id), {
-      ...formData,
-      attachments: files.map(file => file.name),
-      createdAt: serverTimestamp(),
-      dietPlan: jsonPlan,  // <-- store the generated diet plan here
-    });
+//       {/* --- Submit --- */}
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         Save Patient JSON
+//       </button>
+//     </div>
+//   );
+// }
 
-    // Step 5: Update UI
-    setMealPlan(jsonPlan);
 
-    alert("✅ Patient data and diet chart saved successfully!");
 
-    // Reset form
-    setFormData({
-      fullName: "",
-      patientNumber: "",
-      dob: "",
-      age: "",
+// import React, { useState } from "react";
+// import axios from "axios";
+
+// export default function PatientForm() {
+//   const [formData, setFormData] = useState({
+//     personalInfo: { fullName: "", dob: "", gender: "", age: "", contact: { phone: "", email: "" } },
+//     vitals: { height_cm: "", weight_kg: "", bmi: "", bp: "", pulseRate: "", respirationRate: "", temperature: "" },
+//     ayurvedaProfile: { prakriti: "", doshaImbalance: "", agni: "", tastePref: [], foodProperties: [], season: "" },
+//     lifestyle: { dietType: "", mealFreq: "", waterIntake_l: "", bowel: "", sleepPattern: "", physicalActivity: "", stressLevel: "" },
+//     medicalInfo: { allergies: [], conditions: [], medications: [], labReports: { bloodSugarFasting: "", cholesterol: "", hb: "" } },
+//     dietaryPreferences: { avoidFoods: [], preferredFoods: [], restrictedByReligion: "No" },
+//     goals: { shortTerm: "", longTerm: "" },
+//     attachments: [],
+//     calculated: { age: "", bmi: "" },
+//   });
+
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   // --- Handle Nested Updates ---
+//   const handleChange = (path, value) => {
+//     setFormData((prev) => {
+//       const updated = { ...prev };
+//       let ref = updated;
+//       const keys = path.split(".");
+//       keys.slice(0, -1).forEach((k) => { if (!ref[k]) ref[k] = {}; ref = ref[k]; });
+//       ref[keys[keys.length - 1]] = value;
+//       return updated;
+//     });
+//   };
+
+//   // --- Auto calculate age & BMI ---
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const dob = new Date(formData.personalInfo.dob);
+//       const age = new Date().getFullYear() - dob.getFullYear();
+//       handleChange("personalInfo.age", age);
+//       handleChange("calculated.age", age);
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       handleChange("vitals.bmi", bmi);
+//       handleChange("calculated.bmi", bmi);
+//     }
+//   };
+
+//   // --- Handle file uploads ---
+//   const handleFileUpload = (e) => {
+//     const files = Array.from(e.target.files).map((file) => ({
+//       name: file.name,
+//       size: file.size,
+//       type: file.type,
+//     }));
+//     handleChange("attachments", files);
+//   };
+
+//   // --- Submit form & get diet plan ---
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       const res = await axios.post("http://localhost:3000/generate", formData);
+//       setPlan(res.data);
+//       alert("✅ Diet plan generated successfully!");
+//     } catch (err) {
+//       console.error(err);
+//       alert("❌ Error generating diet plan");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
+
+//       {/* --- Personal Info --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 1: Personal Info</h2>
+//         <input type="text" placeholder="Full Name" className="border p-2 w-full"
+//           value={formData.personalInfo.fullName} onChange={(e) => handleChange("personalInfo.fullName", e.target.value)} />
+//         <input type="date" className="border p-2 w-full"
+//           value={formData.personalInfo.dob} onChange={(e) => handleChange("personalInfo.dob", e.target.value)}
+//           onBlur={handleAutoCalc} />
+//         <select className="border p-2 w-full" value={formData.personalInfo.gender}
+//           onChange={(e) => handleChange("personalInfo.gender", e.target.value)}>
+//           <option value="">Select Gender</option>
+//           <option>Male</option><option>Female</option><option>Other</option>
+//         </select>
+//         <input type="number" placeholder="Age" className="border p-2 w-full"
+//           value={formData.personalInfo.age} readOnly />
+//         <input type="text" placeholder="Phone" className="border p-2 w-full"
+//           value={formData.personalInfo.contact.phone}
+//           onChange={(e) => handleChange("personalInfo.contact.phone", e.target.value)} />
+//         <input type="email" placeholder="Email" className="border p-2 w-full"
+//           value={formData.personalInfo.contact.email}
+//           onChange={(e) => handleChange("personalInfo.contact.email", e.target.value)} />
+//       </div>
+
+//       {/* --- Vitals --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 2: Vitals</h2>
+//         <input type="number" placeholder="Height (cm)" className="border p-2 w-full"
+//           value={formData.vitals.height_cm} onChange={(e) => handleChange("vitals.height_cm", +e.target.value)}
+//           onBlur={handleAutoCalc} />
+//         <input type="number" placeholder="Weight (kg)" className="border p-2 w-full"
+//           value={formData.vitals.weight_kg} onChange={(e) => handleChange("vitals.weight_kg", +e.target.value)}
+//           onBlur={handleAutoCalc} />
+//         <input type="text" placeholder="BMI" className="border p-2 w-full" value={formData.vitals.bmi} readOnly />
+//         <input type="text" placeholder="Blood Pressure" className="border p-2 w-full"
+//           value={formData.vitals.bp} onChange={(e) => handleChange("vitals.bp", e.target.value)} />
+//         <input type="number" placeholder="Pulse Rate" className="border p-2 w-full"
+//           value={formData.vitals.pulseRate} onChange={(e) => handleChange("vitals.pulseRate", +e.target.value)} />
+//         <input type="number" placeholder="Respiration Rate" className="border p-2 w-full"
+//           value={formData.vitals.respirationRate} onChange={(e) => handleChange("vitals.respirationRate", +e.target.value)} />
+//         <input type="text" placeholder="Temperature (°F/°C)" className="border p-2 w-full"
+//           value={formData.vitals.temperature} onChange={(e) => handleChange("vitals.temperature", e.target.value)} />
+//       </div>
+
+//       {/* --- Ayurveda Profile --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Step 3: Ayurveda Profile</h2>
+//         <select className="border p-2 w-full" value={formData.ayurvedaProfile.prakriti}
+//           onChange={(e) => handleChange("ayurvedaProfile.prakriti", e.target.value)}>
+//           <option value="">Select Prakriti</option><option>Vata</option><option>Pitta</option><option>Kapha</option><option>Mixed</option>
+//         </select>
+//         <select className="border p-2 w-full" value={formData.ayurvedaProfile.doshaImbalance}
+//           onChange={(e) => handleChange("ayurvedaProfile.doshaImbalance", e.target.value)}>
+//           <option value="">Select Dosha Imbalance</option><option>↑ Vata</option><option>↑ Pitta</option><option>↑ Kapha</option><option>Balanced</option>
+//         </select>
+//         <select className="border p-2 w-full" value={formData.ayurvedaProfile.agni}
+//           onChange={(e) => handleChange("ayurvedaProfile.agni", e.target.value)}>
+//           <option value="">Select Agni</option><option>Manda</option><option>Sama</option><option>Tikshna</option><option>Vishama</option>
+//         </select>
+//         <input type="text" placeholder="Taste Preferences (comma separated)" className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.tastePref.join(", ")}
+//           onChange={(e) => handleChange("ayurvedaProfile.tastePref", e.target.value.split(",").map(s => s.trim()))} />
+//         <input type="text" placeholder="Food Properties (comma separated)" className="border p-2 w-full"
+//           value={formData.ayurvedaProfile.foodProperties.join(", ")}
+//           onChange={(e) => handleChange("ayurvedaProfile.foodProperties", e.target.value.split(",").map(s => s.trim()))} />
+//         <select className="border p-2 w-full" value={formData.ayurvedaProfile.season}
+//           onChange={(e) => handleChange("ayurvedaProfile.season", e.target.value)}>
+//           <option value="">Select Season</option><option>Summer</option><option>Winter</option><option>Rainy</option><option>All</option>
+//         </select>
+//       </div>
+
+//       {/* --- File Attachments --- */}
+//       <div className="p-4 border rounded-xl shadow-md space-y-2">
+//         <h2 className="text-lg font-semibold">Attachments</h2>
+//         <input type="file" multiple className="border p-2 w-full" onChange={handleFileUpload} />
+//         <ul className="list-disc ml-5">
+//           {formData.attachments.map((file, i) => (
+//             <li key={i}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+//           ))}
+//         </ul>
+//       </div>
+
+//       {/* --- Submit --- */}
+//       <button onClick={handleSubmit} className="px-4 py-2 bg-green-600 text-white rounded-lg">
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {/* --- Display generated diet plan --- */}
+//       {plan && (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">Diet Plan for {formData.personalInfo.fullName}</h2>
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p>Breakfast: {day.breakfast}</p>
+//               <p>Lunch: {day.lunch}</p>
+//               <p>Dinner: {day.dinner}</p>
+//             </div>
+//           ))}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+// import React, { useState } from "react";
+// import axios from "axios";
+
+// export default function PatientForm() {
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   // --- Pre-filled formData for testing ---
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "Rohan Verma",
+//       dob: "1980-05-15",
+//       gender: "Male",
+//       age: 43,
+//       contact: { phone: "9999999999", email: "example@mail.com" },
+//     },
+//     vitals: {
+//       height_cm: 175,
+//       weight_kg: 82,
+//       bmi: 26.8,
+//       bp: "120/80",
+//       pulseRate: 70,
+//       respirationRate: 16,
+//       temperature: "98.6",
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "Mixed",
+//       doshaImbalance: "Balanced",
+//       agni: "Sama",
+//       tastePref: ["Sweet", "Bitter"],
+//       foodProperties: ["Light", "Dry"],
+//       season: "All",
+//     },
+//     lifestyle: {
+//       dietType: "Vegetarian",
+//       mealFreq: 3,
+//       waterIntake_l: 2,
+//       bowel: "Normal",
+//       sleepPattern: "Regular",
+//       physicalActivity: "Moderate",
+//       stressLevel: "Moderate",
+//     },
+//     medicalInfo: {
+//       allergies: [],
+//       conditions: [],
+//       medications: [],
+//       labReports: { bloodSugarFasting: "90", cholesterol: "180", hb: "14" },
+//     },
+//     dietaryPreferences: { avoidFoods: [], preferredFoods: [], restrictedByReligion: "No" },
+//     goals: { shortTerm: "Maintain weight", longTerm: "Improve digestion" },
+//     attachments: [],
+//     calculated: { age: 43, bmi: 26.8 },
+//   });
+
+//   // --- Handle nested updates ---
+//   const handleChange = (path, value) => {
+//     setFormData(prev => {
+//       const updated = { ...prev };
+//       let ref = updated;
+//       const keys = path.split(".");
+//       keys.slice(0, -1).forEach(k => { if (!ref[k]) ref[k] = {}; ref = ref[k]; });
+//       ref[keys[keys.length - 1]] = value;
+//       return updated;
+//     });
+//   };
+
+//   // --- Auto calculate age & BMI ---
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const dob = new Date(formData.personalInfo.dob);
+//       const age = new Date().getFullYear() - dob.getFullYear();
+//       handleChange("personalInfo.age", age);
+//       handleChange("calculated.age", age);
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       handleChange("vitals.bmi", bmi);
+//       handleChange("calculated.bmi", bmi);
+//     }
+//   };
+
+//   // --- Submit form ---
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       handleAutoCalc();
+
+//       const res = await axios.post("http://localhost:3000/generate", formData);
+
+//       setPlan(res.data);
+//       alert("✅ Diet plan generated and saved!");
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       alert("❌ Error generating diet plan");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form (Test Mode)</h1>
+
+//       {/* --- Submit Button --- */}
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {/* --- Display Generated Plan --- */}
+//       {plan?.recommendedMeals?.length > 0 && (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">
+//             Diet Plan for {formData.personalInfo.fullName}
+//           </h2>
+
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p><strong>Breakfast:</strong> {day.breakfast}</p>
+//               <p><strong>Lunch:</strong> {day.lunch}</p>
+//               <p><strong>Dinner:</strong> {day.dinner}</p>
+//             </div>
+//           ))}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// PatientForm.jsx
+// import React, { useState, useEffect } from "react";
+// import axios from "axios";
+
+// export default function PatientForm() {
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "Rohan Verma",
+//       dob: "1980-05-15",
+//       gender: "Male",
+//       age: 45,
+//       contact: { phone: "+919876543210", email: "rohan.verma@example.com" }
+//     },
+//     vitals: {
+//       height_cm: 175,
+//       weight_kg: 82,
+//       bmi: 26.8,
+//       bp: "140/90",
+//       pulseRate: 78,
+//       respirationRate: 16,
+//       temperature: "98.4"
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "Pitta-Kapha",
+//       doshaImbalance: "Pitta",
+//       agni: "Tikshna",
+//       tastePref: ["sweet", "bitter", "astringent"],
+//       foodProperties: ["cool", "light", "dry"],
+//       season: "Summer"
+//     },
+//     lifestyle: {
+//       dietType: "Vegetarian",
+//       mealFreq: 3,
+//       waterIntake_l: 2.5,
+//       bowel: "Normal",
+//       sleepPattern: "11 PM - 6 AM",
+//       physicalActivity: "Moderate",
+//       stressLevel: "Moderate"
+//     },
+//     medicalInfo: {
+//       allergies: ["None reported"],
+//       conditions: ["Hypertension", "Prediabetes"],
+//       medications: ["Amlodipine 5mg"],
+//       labReports: { bloodSugarFasting: "115", cholesterol: "210", hb: "14.2" }
+//     },
+//     dietaryPreferences: {
+//       avoidFoods: ["spicy", "oily", "fermented"],
+//       preferredFoods: ["moong dal", "ghee", "pomegranate", "leafy greens"],
+//       restrictedByReligion: "No"
+//     },
+//     goals: { shortTerm: "Reduce pitta imbalance", longTerm: "Prevent diabetes" },
+//     attachments: [],
+//     calculated: { age: 45, bmi: 26.8 }
+//   });
+
+//   // Auto calculate age and BMI
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const age = new Date().getFullYear() - new Date(formData.personalInfo.dob).getFullYear();
+//       formData.personalInfo.age = age;
+//       formData.calculated.age = age;
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       formData.vitals.bmi = bmi;
+//       formData.calculated.bmi = bmi;
+//     }
+//   };
+
+//   // --- Fetch latest saved plan from backend ---
+//   const fetchLatestPlan = async () => {
+//     try {
+//       const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+//       console.log("Latest plan response:", res.data);
+
+//       const weeklyPlan = res.data?.dietPlan?.weekly_plan || [];
+//       if (weeklyPlan.length === 0) {
+//         setPlan(null);
+//         return;
+//       }
+
+//       // Transform Firestore weekly_plan into frontend-friendly structure
+//       const recommendedMeals = weeklyPlan.map(day => ({
+//         day: day.day,
+//         breakfast: day.meals.breakfast.items.map(i => i.Dish_Name).join(", "),
+//         lunch: day.meals.lunch.items.map(i => i.Dish_Name).join(", "),
+//         dinner: day.meals.dinner.items.map(i => i.Dish_Name).join(", ")
+//       }));
+
+//       setPlan({ recommendedMeals });
+//     } catch (err) {
+//       console.error("Failed to fetch latest plan:", err);
+//     }
+//   };
+
+//   // Fetch latest plan on page load
+//   useEffect(() => {
+//     fetchLatestPlan();
+//   }, []);
+
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       handleAutoCalc();
+
+//       await axios.post("http://localhost:3000/generate", formData);
+//       alert("✅ Diet plan saved!");
+      
+//       // Fetch the newly saved plan immediately
+//       await fetchLatestPlan();
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       alert("❌ Error generating diet plan");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {plan?.recommendedMeals?.length > 0 ? (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">
+//             Diet Plan for {formData.personalInfo.fullName}
+//           </h2>
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p><strong>Breakfast:</strong> {day.breakfast}</p>
+//               <p><strong>Lunch:</strong> {day.lunch}</p>
+//               <p><strong>Dinner:</strong> {day.dinner}</p>
+//             </div>
+//           ))}
+//         </div>
+//       ) : (
+//         <p className="mt-4 text-gray-500">No diet plan generated yet.</p>
+//       )}
+//     </div>
+//   );
+// }
+
+
+// PatientForm.jsx
+// import React, { useState } from "react";
+// import axios from "axios";
+
+// export default function PatientForm() {
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "Rohan Verma",
+//       dob: "1980-05-15",
+//       gender: "Male",
+//       age: 45,
+//       contact: { phone: "+919876543210", email: "rohan.verma@example.com" },
+//     },
+//     vitals: {
+//       height_cm: 175,
+//       weight_kg: 82,
+//       bmi: 26.8,
+//       bp: "140/90",
+//       pulseRate: 78,
+//       respirationRate: 16,
+//       temperature: "98.4",
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "Pitta-Kapha",
+//       doshaImbalance: "Pitta",
+//       agni: "Tikshna",
+//       tastePref: ["sweet", "bitter", "astringent"],
+//       foodProperties: ["cool", "light", "dry"],
+//       season: "Summer",
+//     },
+//     lifestyle: {
+//       dietType: "Vegetarian",
+//       mealFreq: 3,
+//       waterIntake_l: 2.5,
+//       bowel: "Normal",
+//       sleepPattern: "11 PM - 6 AM",
+//       physicalActivity: "Moderate",
+//       stressLevel: "Moderate",
+//     },
+//     medicalInfo: {
+//       allergies: ["None reported"],
+//       conditions: ["Hypertension", "Prediabetes"],
+//       medications: ["Amlodipine 5mg"],
+//       labReports: { bloodSugarFasting: "115", cholesterol: "210", hb: "14.2" },
+//     },
+//     dietaryPreferences: {
+//       avoidFoods: ["spicy", "oily", "fermented"],
+//       preferredFoods: ["moong dal", "ghee", "pomegranate", "leafy greens"],
+//       restrictedByReligion: "No",
+//     },
+//     goals: {
+//       shortTerm: "Reduce pitta imbalance",
+//       longTerm: "Prevent diabetes",
+//     },
+//     attachments: [],
+//     calculated: { age: 45, bmi: 26.8 },
+//   });
+
+//   // Auto calculate age and BMI
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const age =
+//         new Date().getFullYear() -
+//         new Date(formData.personalInfo.dob).getFullYear();
+//       formData.personalInfo.age = age;
+//       formData.calculated.age = age;
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       formData.vitals.bmi = bmi;
+//       formData.calculated.bmi = bmi;
+//     }
+//   };
+
+//   // --- Fetch latest saved plan from backend ---
+//   const fetchLatestPlan = async () => {
+//     try {
+//       const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+//       console.log("Latest plan response:", res.data);
+
+//       const weeklyPlan =
+//         res.data?.fullPlan?.weekly_plan || res.data?.recommendedMeals || [];
+
+//       if (weeklyPlan.length === 0) {
+//         setPlan(null);
+//         return;
+//       }
+
+//       const recommendedMeals = weeklyPlan.map((day) => ({
+//         day: day.day,
+//         breakfast:
+//           day.meals?.breakfast?.items?.map((i) => i.Dish_Name).join(", ") || "",
+//         lunch:
+//           day.meals?.lunch?.items?.map((i) => i.Dish_Name).join(", ") || "",
+//         dinner:
+//           day.meals?.dinner?.items?.map((i) => i.Dish_Name).join(", ") || "",
+//       }));
+
+//       setPlan({ recommendedMeals });
+//     } catch (err) {
+//       console.error("Failed to fetch latest plan:", err);
+//     }
+
+
+    
+//   };
+
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       handleAutoCalc();
+
+//       await axios.post("http://localhost:3000/generate", formData);
+//       alert("✅ Diet plan saved!");
+
+//       // Fetch the newly saved plan only after generating
+//       await fetchLatestPlan();
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       alert("❌ Error generating diet plan");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {plan?.recommendedMeals?.length > 0 ? (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">
+//             Diet Plan for {formData.personalInfo.fullName}
+//           </h2>
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p>
+//                 <strong>Breakfast:</strong> {day.breakfast}
+//               </p>
+//               <p>
+//                 <strong>Lunch:</strong> {day.lunch}
+//               </p>
+//               <p>
+//                 <strong>Dinner:</strong> {day.dinner}
+//               </p>
+//             </div>
+//           ))}
+//         </div>
+//       ) : (
+//         <p className="mt-4 text-gray-500">
+//           No diet plan generated yet. Click the button above to generate.
+//         </p>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+// PatientForm.jsx
+// import React, { useState, useEffect } from "react";
+// import axios from "axios";
+
+// export default function PatientForm() {
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "Rohan Verma",
+//       dob: "1980-05-15",
+//       gender: "Male",
+//       age: 45,
+//       contact: { phone: "+919876543210", email: "rohan.verma@example.com" },
+//     },
+//     vitals: {
+//       height_cm: 175,
+//       weight_kg: 82,
+//       bmi: 26.8,
+//       bp: "140/90",
+//       pulseRate: 78,
+//       respirationRate: 16,
+//       temperature: "98.4",
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "Pitta-Kapha",
+//       doshaImbalance: "Pitta",
+//       agni: "Tikshna",
+//       tastePref: ["sweet", "bitter", "astringent"],
+//       foodProperties: ["cool", "light", "dry"],
+//       season: "Summer",
+//     },
+//     lifestyle: {
+//       dietType: "Vegetarian",
+//       mealFreq: 3,
+//       waterIntake_l: 2.5,
+//       bowel: "Normal",
+//       sleepPattern: "11 PM - 6 AM",
+//       physicalActivity: "Moderate",
+//       stressLevel: "Moderate",
+//     },
+//     medicalInfo: {  // <-- Added medicalInfo
+//       allergies: ["None reported"],
+//       conditions: ["Hypertension", "Prediabetes"],
+//       medications: ["Amlodipine 5mg"],
+//       labReports: {
+//         bloodSugarFasting: "115",
+//         cholesterol: "210",
+//         hb: "14.2"
+//       }
+//     },
+//     dietaryPreferences: {
+//       avoidFoods: ["spicy", "oily", "fermented"],
+//       preferredFoods: ["moong dal", "ghee", "pomegranate", "leafy greens"],
+//       restrictedByReligion: "No",
+//     },
+//     goals: {
+//       shortTerm: "Reduce pitta imbalance",
+//       longTerm: "Prevent diabetes",
+//     },
+//     attachments: [],
+//     calculated: { age: 45, bmi: 26.8 },
+//   });
+
+//   // --- Auto-calculate age & BMI ---
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const age =
+//         new Date().getFullYear() - new Date(formData.personalInfo.dob).getFullYear();
+//       formData.personalInfo.age = age;
+//       formData.calculated.age = age;
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       formData.vitals.bmi = bmi;
+//       formData.calculated.bmi = bmi;
+//     }
+//   };
+
+//   // --- Normalize meals ---
+//   const normalizeMeals = (rawMeals) => {
+//     if (!rawMeals || rawMeals.length === 0) return [];
+//     return rawMeals.map((day, i) => ({
+//       day: day.day || day.Day || i + 1,
+//       breakfast: day.breakfast || day.meals?.breakfast?.items?.map(i => i.Dish_Name).join(", ") || "",
+//       lunch: day.lunch || day.meals?.lunch?.items?.map(i => i.Dish_Name).join(", ") || "",
+//       dinner: day.dinner || day.meals?.dinner?.items?.map(i => i.Dish_Name).join(", ") || ""
+//     }));
+//   };
+
+//   // --- Fetch latest saved plan ---
+//   const fetchLatestPlan = async () => {
+//     try {
+//       const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+//       const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
+//       const normalizedMeals = normalizeMeals(rawMeals);
+//       setPlan({ recommendedMeals: normalizedMeals });
+//     } catch (err) {
+//       console.error("Failed to fetch latest plan:", err);
+//     }
+//   };
+
+//   // --- Submit form & generate plan ---
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       handleAutoCalc();
+//       console.log("Sending patient data:", formData);
+
+//       await axios.post("http://localhost:3000/generate", formData);
+
+//       alert("✅ Diet plan saved!");
+//       await fetchLatestPlan();
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       alert("❌ Error generating diet plan. Check console for details.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   // --- Auto-load latest plan on page load ---
+//   useEffect(() => {
+//     fetchLatestPlan();
+//   }, []);
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
+
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {plan?.recommendedMeals?.length > 0 ? (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">
+//             Diet Plan for {formData.personalInfo.fullName}
+//           </h2>
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p><strong>Breakfast:</strong> {day.breakfast}</p>
+//               <p><strong>Lunch:</strong> {day.lunch}</p>
+//               <p><strong>Dinner:</strong> {day.dinner}</p>
+//             </div>
+//           ))}
+//         </div>
+//       ) : (
+//         <p className="mt-4 text-gray-500">
+//           No diet plan generated yet. Click the button above to generate.
+//         </p>
+//       )}
+//     </div>
+//   );
+// }
+
+
+// PatientForm.jsx
+// import React, { useState } from "react";
+// import axios from "axios";
+// import jsPDF from "jspdf";
+
+// export default function PatientForm() {
+//   const [plan, setPlan] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const [formData, setFormData] = useState({
+//     personalInfo: {
+//       fullName: "Rohan Verma",
+//       dob: "1980-05-15",
+//       gender: "Male",
+//       age: 45,
+//       contact: { phone: "+919876543210", email: "rohan.verma@example.com" },
+//     },
+//     vitals: {
+//       height_cm: 175,
+//       weight_kg: 82,
+//       bmi: 26.8,
+//       bp: "140/90",
+//       pulseRate: 78,
+//       respirationRate: 16,
+//       temperature: "98.4",
+//     },
+//     ayurvedaProfile: {
+//       prakriti: "Pitta-Kapha",
+//       doshaImbalance: "Pitta",
+//       agni: "Tikshna",
+//       tastePref: ["sweet", "bitter", "astringent"],
+//       foodProperties: ["cool", "light", "dry"],
+//       season: "Summer",
+//     },
+//     lifestyle: {
+//       dietType: "Vegetarian",
+//       mealFreq: 3,
+//       waterIntake_l: 2.5,
+//       bowel: "Normal",
+//       sleepPattern: "11 PM - 6 AM",
+//       physicalActivity: "Moderate",
+//       stressLevel: "Moderate",
+//     },
+//     medicalInfo: {
+//       allergies: ["None reported"],
+//       conditions: ["Hypertension", "Prediabetes"],
+//       medications: ["Amlodipine 5mg"],
+//       labReports: { bloodSugarFasting: "115", cholesterol: "210", hb: "14.2" },
+//     },
+//     dietaryPreferences: {
+//       avoidFoods: ["spicy", "oily", "fermented"],
+//       preferredFoods: ["moong dal", "ghee", "pomegranate", "leafy greens"],
+//       restrictedByReligion: "No",
+//     },
+//     goals: {
+//       shortTerm: "Reduce pitta imbalance",
+//       longTerm: "Prevent diabetes",
+//     },
+//     attachments: [],
+//     calculated: { age: 45, bmi: 26.8 },
+//   });
+
+//   // --- Auto-calculate age & BMI ---
+//   const handleAutoCalc = () => {
+//     if (formData.personalInfo.dob) {
+//       const age =
+//         new Date().getFullYear() - new Date(formData.personalInfo.dob).getFullYear();
+//       formData.personalInfo.age = age;
+//       formData.calculated.age = age;
+//     }
+//     if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+//       const h = formData.vitals.height_cm / 100;
+//       const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+//       formData.vitals.bmi = bmi;
+//       formData.calculated.bmi = bmi;
+//     }
+//   };
+
+//   // --- Normalize meals from backend ---
+//   const normalizeMeals = (rawMeals) => {
+//     if (!rawMeals || rawMeals.length === 0) return [];
+//     return rawMeals.map((day, i) => ({
+//       day: day.day || day.Day || i + 1,
+//       breakfast: day.breakfast || day.meals?.breakfast?.items?.map(i => i.Dish_Name).join(", ") || "",
+//       lunch: day.lunch || day.meals?.lunch?.items?.map(i => i.Dish_Name).join(", ") || "",
+//       dinner: day.dinner || day.meals?.dinner?.items?.map(i => i.Dish_Name).join(", ") || ""
+//     }));
+//   };
+
+//   // --- Fetch latest saved plan ---
+//   const fetchLatestPlan = async () => {
+//     try {
+//       const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+//       const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
+//       const normalizedMeals = normalizeMeals(rawMeals);
+//       setPlan({ recommendedMeals: normalizedMeals });
+//     } catch (err) {
+//       console.error("Failed to fetch latest plan:", err);
+//     }
+//   };
+
+//   // --- Submit form & generate plan ---
+//   const handleSubmit = async () => {
+//     try {
+//       setLoading(true);
+//       handleAutoCalc();
+
+//       console.log("Sending patient data:", formData);
+//       await axios.post("http://localhost:3000/generate", formData);
+
+//       alert("✅ Diet plan saved!");
+//       await fetchLatestPlan(); // Fetch only after submission
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       alert("❌ Error generating diet plan. Check console for details.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   // --- Generate PDF ---
+//   const generatePDF = () => {
+//     if (!plan || !plan.recommendedMeals || plan.recommendedMeals.length === 0) {
+//       alert("❌ No diet plan to generate PDF.");
+//       return;
+//     }
+
+//     const doc = new jsPDF();
+//     doc.setFontSize(16);
+//     doc.text(`Diet Plan for ${formData.personalInfo.fullName}`, 14, 20);
+
+//     let y = 30;
+//     plan.recommendedMeals.forEach((day) => {
+//       doc.setFontSize(14);
+//       doc.text(`Day ${day.day}`, 14, y);
+//       y += 8;
+//       doc.setFontSize(12);
+//       doc.text(`Breakfast: ${day.breakfast}`, 14, y);
+//       y += 6;
+//       doc.text(`Lunch: ${day.lunch}`, 14, y);
+//       y += 6;
+//       doc.text(`Dinner: ${day.dinner}`, 14, y);
+//       y += 10;
+
+//       if (y > 270) { // Create new page if overflow
+//         doc.addPage();
+//         y = 20;
+//       }
+//     });
+
+//     doc.save(`DietPlan_${formData.personalInfo.fullName}.pdf`);
+//   };
+
+//   return (
+//     <div className="p-6 max-w-4xl mx-auto space-y-8">
+//       <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
+
+//       <button
+//         onClick={handleSubmit}
+//         className="px-4 py-2 bg-green-600 text-white rounded-lg"
+//       >
+//         {loading ? "Generating..." : "Save & Generate Diet Chart"}
+//       </button>
+
+//       {plan?.recommendedMeals?.length > 0 && (
+//         <button
+//           onClick={generatePDF}
+//           className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+//         >
+//           📄 Download PDF
+//         </button>
+//       )}
+
+//       {plan?.recommendedMeals?.length > 0 ? (
+//         <div className="mt-6 p-4 border rounded-xl shadow-md">
+//           <h2 className="text-xl font-semibold">
+//             Diet Plan for {formData.personalInfo.fullName}
+//           </h2>
+//           {plan.recommendedMeals.map((day, i) => (
+//             <div key={i} className="mt-2 p-2 border-b">
+//               <h3 className="font-semibold">Day {day.day}</h3>
+//               <p><strong>Breakfast:</strong> {day.breakfast}</p>
+//               <p><strong>Lunch:</strong> {day.lunch}</p>
+//               <p><strong>Dinner:</strong> {day.dinner}</p>
+//             </div>
+//           ))}
+//         </div>
+//       ) : (
+//         <p className="mt-4 text-gray-500">
+//           No diet plan generated yet. Click the button above to generate.
+//         </p>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+// PatientForm.jsx
+import React, { useState } from "react";
+import axios from "axios";
+import jsPDF from "jspdf";
+
+export default function PatientForm() {
+  const [plan, setPlan] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
+    personalInfo: {
+      fullName: "Rohan Verma",
+      dob: "1980-05-15",
       gender: "Male",
-      height: "",
-      weight: "",
-      bmi: "",
-      prakriti: "pitta",
-      conditions: "",
-      meds: "",
-      allergies: "",
-      bp: "",
-      bowel: "Normal",
-      waterIntake: "",
+      age: 45,
+      contact: { phone: "+919876543210", email: "rohan.verma@example.com" },
+    },
+    vitals: {
+      height_cm: 175,
+      weight_kg: 82,
+      bmi: 26.8,
+      bp: "140/90",
+      pulseRate: 78,
+      respirationRate: 16,
+      temperature: "98.4",
+    },
+    ayurvedaProfile: {
+      prakriti: "Pitta-Kapha",
+      doshaImbalance: "Pitta",
+      agni: "Tikshna",
+      tastePref: ["sweet", "bitter", "astringent"],
+      foodProperties: ["cool", "light", "dry"],
+      season: "Summer",
+    },
+    lifestyle: {
       dietType: "Vegetarian",
       mealFreq: 3,
-      foodProperties: [],
-      testPref: [],
-      goals: "",
-    });
-    setFiles([]);
-  } catch (error) {
-    console.error("❌ Error saving patient or diet chart:", error);
-    alert("Failed to save patient data or diet chart!");
-  }
-};
-
-
-const downloadPDF = () => {
-  if (!mealPlan) return;
-
-  // Initialize jsPDF
-  const doc = new jsPDF();
-
-  // Prepare table data
-  const head = [["Day", "Breakfast", "Lunch", "Dinner"]];
-  const body = Object.entries(mealPlan).map(([day, meals]) => [
-    day,
-    meals.breakfast.map(d => d.name).join(", "),
-    meals.lunch.map(d => d.name).join(", "),
-    meals.dinner.map(d => d.name).join(", "),
-  ]);
-
-  // Generate table
-  autoTable(doc, {
-    head,
-    body,
-    startY: 20,
-    styles: { fontSize: 10 },
-    headStyles: { fillColor: [34, 197, 94] }, // green header
+      waterIntake_l: 2.5,
+      bowel: "Normal",
+      sleepPattern: "11 PM - 6 AM",
+      physicalActivity: "Moderate",
+      stressLevel: "Moderate",
+    },
+    medicalInfo: {
+      allergies: ["None reported"],
+      conditions: ["Hypertension", "Prediabetes"],
+      medications: ["Amlodipine 5mg"],
+      labReports: { bloodSugarFasting: "115", cholesterol: "210", hb: "14.2" },
+    },
+    dietaryPreferences: {
+      avoidFoods: ["spicy", "oily", "fermented"],
+      preferredFoods: ["moong dal", "ghee", "pomegranate", "leafy greens"],
+      restrictedByReligion: "No",
+    },
+    goals: {
+      shortTerm: "Reduce pitta imbalance",
+      longTerm: "Prevent diabetes",
+    },
+    attachments: [],
+    calculated: { age: 45, bmi: 26.8 },
   });
 
-  // Save PDF
-  doc.save("meal-plan.pdf");
-};
-
-
-
-  // Animation variants for Framer Motion
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    },
+  // --- Auto-calculate age & BMI ---
+  const handleAutoCalc = () => {
+    if (formData.personalInfo.dob) {
+      const age =
+        new Date().getFullYear() - new Date(formData.personalInfo.dob).getFullYear();
+      formData.personalInfo.age = age;
+      formData.calculated.age = age;
+    }
+    if (formData.vitals.height_cm && formData.vitals.weight_kg) {
+      const h = formData.vitals.height_cm / 100;
+      const bmi = (formData.vitals.weight_kg / (h * h)).toFixed(1);
+      formData.vitals.bmi = bmi;
+      formData.calculated.bmi = bmi;
+    }
   };
-  
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 },
+
+  // --- Normalize meals ---
+  const normalizeMeals = (rawMeals) => {
+    if (!rawMeals || rawMeals.length === 0) return [];
+    return rawMeals.map((day, i) => ({
+      day: day.day || day.Day || i + 1,
+      breakfast: day.breakfast || day.meals?.breakfast?.items?.map(i => i.Dish_Name).join(", ") || "",
+      lunch: day.lunch || day.meals?.lunch?.items?.map(i => i.Dish_Name).join(", ") || "",
+      dinner: day.dinner || day.meals?.dinner?.items?.map(i => i.Dish_Name).join(", ") || ""
+    }));
+  };
+
+  // --- Fetch latest saved plan ---
+  const fetchLatestPlan = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+      const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
+      const normalizedMeals = normalizeMeals(rawMeals);
+      setPlan({ recommendedMeals: normalizedMeals });
+    } catch (err) {
+      console.error("Failed to fetch latest plan:", err);
+    }
+  };
+
+  // --- Submit form & generate plan ---
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      handleAutoCalc();
+
+      console.log("Sending patient data:", formData);
+      await axios.post("http://localhost:3000/generate", formData);
+
+      alert("✅ Diet plan saved!");
+      await fetchLatestPlan(); // Fetch only after submission
+    } catch (err) {
+      console.error("Backend error:", err.response?.data || err.message);
+      alert("❌ Error generating diet plan. Check console for details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Generate Stylish PDF ---
+  const generatePDF = () => {
+    if (!plan || !plan.recommendedMeals || plan.recommendedMeals.length === 0) {
+      alert("❌ No diet plan to generate PDF.");
+      return;
+    }
+
+    const doc = new jsPDF('p', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.width;
+
+    // --- Header ---
+    doc.setFillColor(76, 175, 80); // green header
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.setFontSize(20);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Diet Plan for ${formData.personalInfo.fullName}`, pageWidth / 2, 32, { align: 'center' });
+
+    let y = 70;
+
+    plan.recommendedMeals.forEach((day) => {
+      // Day box
+      doc.setFillColor(230, 230, 250); // light lavender
+      doc.roundedRect(14, y - 4, pageWidth - 28, 60, 5, 5, 'F');
+
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Day ${day.day}`, 20, y);
+
+      doc.setFontSize(12);
+      doc.text(`Breakfast: ${day.breakfast}`, 20, y + 18);
+      doc.text(`Lunch: ${day.lunch}`, 20, y + 32);
+      doc.text(`Dinner: ${day.dinner}`, 20, y + 46);
+
+      y += 70;
+
+      if (y > 750) { // create new page if overflow
+        doc.addPage();
+        y = 50;
+      }
+    });
+
+    // --- Footer ---
+    const today = new Date();
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`, pageWidth - 14, doc.internal.pageSize.height - 10, { align: 'right' });
+
+    doc.save(`DietPlan_${formData.personalInfo.fullName}.pdf`);
   };
 
   return (
-    <div className="relative min-h-screen transition-colors duration-300 bg-gradient-to-br from-green-50 via-white to-green-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-gray-800 dark:text-gray-100 overflow-y-auto p-4 sm:p-6 lg:p-8">
-      {/* Background Blobs */}
-      <motion.div className="absolute -left-40 -top-40 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-40" style={{ background: "radial-gradient(circle at 20% 20%, rgba(16,185,129,0.28), rgba(16,185,129,0) 40%)" }} animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 10, repeat: Infinity }} />
-      <motion.div className="absolute -right-48 -bottom-40 w-[520px] h-[520px] rounded-full mix-blend-multiply filter blur-3xl opacity-30" style={{ background: "radial-gradient(circle at 80% 80%, rgba(34,197,94,0.28), rgba(34,197,94,0) 40%)" }} animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 12, repeat: Infinity }} />
+    <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold">🩺 Patient Form</h1>
 
-      <main className="relative z-10 max-w-6xl mx-auto">
-        <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }} className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-green-700 dark:text-green-300">New Patient Intake Form</h1>
-          <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">Enter the patient's details to generate a new health profile.</p>
-        </motion.div>
-        
-        <form onSubmit={handleSubmit} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-green-100 dark:border-slate-800 rounded-2xl p-8 shadow-lg">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-            
-            {/* Section: Basic Information */}
-            <motion.div variants={itemVariants} className="lg:col-span-3 border-b-2 border-green-200 dark:border-slate-700 pb-4 mb-2">
-              <h2 className="text-xl font-semibold text-green-700 dark:text-green-300 flex items-center gap-3"><FiUser /> Basic Information</h2>
-            </motion.div>
+      <button
+        onClick={handleSubmit}
+        className="px-4 py-2 bg-green-600 text-white rounded-lg"
+      >
+        {loading ? "Generating..." : "Save & Generate Diet Chart"}
+      </button>
 
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FiUser />} label="Full Name">
-                <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" required />
-              </InputField>
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FiFileText />} label="Patient Number">
-                <input type="text" name="patientNumber" value={formData.patientNumber} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" required />
-              </InputField>
-            </motion.div>
+      {plan?.recommendedMeals?.length > 0 && (
+        <button
+          onClick={generatePDF}
+          className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          📄 Download PDF
+        </button>
+      )}
 
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FaBirthdayCake />} label="Date of Birth">
-                <input type="date" name="dob" value={formData.dob} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" required />
-              </InputField>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FiUser />} label="Age (auto-calculated)">
-                <input type="number" name="age" value={formData.age} readOnly className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 shadow-sm focus:outline-none" />
-              </InputField>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="col-span-1 md:col-span-2">
-              <label className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">Gender</label>
-              <div className="flex gap-4 items-center bg-white/50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-200 dark:border-slate-700">
-                {["Male", "Female", "Other"].map(gender => (
-                  <label key={gender} className={`flex-1 text-center cursor-pointer px-4 py-1.5 rounded-md transition ${formData.gender === gender ? 'bg-green-600 text-white shadow' : 'hover:bg-green-50 dark:hover:bg-slate-700'}`}>
-                    <input type="radio" name="gender" value={gender} checked={formData.gender === gender} onChange={handleChange} className="sr-only" />
-                    {gender}
-                  </label>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Section: Physical Metrics */}
-            <motion.div variants={itemVariants} className="lg:col-span-3 border-b-2 border-green-200 dark:border-slate-700 pb-4 mb-2 mt-6">
-              <h2 className="text-xl font-semibold text-green-700 dark:text-green-300 flex items-center gap-3"><FiHeart /> Physical Metrics</h2>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FaRulerVertical />} label="Height (cm)">
-                <input type="number" name="height" value={formData.height} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" />
-              </InputField>
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FaWeight />} label="Weight (kg)">
-                <input type="number" name="weight" value={formData.weight} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" />
-              </InputField>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FiFileText />} label="BMI (auto-calculated)">
-                <input type="text" name="bmi" value={formData.bmi} readOnly className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 shadow-sm focus:outline-none" />
-              </InputField>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <InputField icon={<FiDroplet />} label="Blood Pressure">
-                <input type="text" name="bp" placeholder="e.g., 120/80 mmHg" value={formData.bp} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition" />
-              </InputField>
-            </motion.div>
-
-            {/* Section: Medical & Lifestyle */}
-            <motion.div variants={itemVariants} className="lg:col-span-3 border-b-2 border-green-200 dark:border-slate-700 pb-4 mb-2 mt-6">
-              <h2 className="text-xl font-semibold text-green-700 dark:text-green-300 flex items-center gap-3"><GiStomach /> Medical & Lifestyle</h2>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
-              <InputField icon={<FiHeart />} label="Existing Conditions">
-                <textarea name="conditions" value={formData.conditions} onChange={handleChange} rows="3" className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition"></textarea>
-              </InputField>
-            </motion.div>
-            
-            <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
-              <InputField icon={<FiPlus />} label="Medications">
-                <textarea name="meds" value={formData.meds} onChange={handleChange} rows="3" className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition"></textarea>
-              </InputField>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
-              <InputField icon={<FiPlus />} label="Allergies">
-                <textarea name="allergies" value={formData.allergies} onChange={handleChange} rows="3" className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400 dark:focus:ring-green-600 transition"></textarea>
-              </InputField>
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <label className="block mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">Prakriti (Constitution)</label>
-              <div className="flex gap-4 items-center bg-white/50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-200 dark:border-slate-700">
-                {["Vata", "Pitta", "Kapha"].map(type => (
-                  <label key={type} className={`flex-1 text-center cursor-pointer px-4 py-1.5 rounded-md transition ${formData.prakriti === type.toLowerCase() ? 'bg-green-600 text-white shadow' : 'hover:bg-green-50 dark:hover:bg-slate-700'}`}>
-                    <input type="radio" name="prakriti" value={type.toLowerCase()} checked={formData.prakriti === type.toLowerCase()} onChange={handleChange} className="sr-only" />
-                    {type}
-                  </label>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Section: Attachments */}
-            <motion.div variants={itemVariants} className="lg:col-span-3 border-b-2 border-green-200 dark:border-slate-700 pb-4 mb-2 mt-6">
-              <h2 className="text-xl font-semibold text-green-700 dark:text-green-300 flex items-center gap-3"><FiPaperclip /> Attachments</h2>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="lg:col-span-3">
-              <div 
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 ${isDragging ? 'border-green-500 bg-green-100/50 dark:bg-green-900/50' : 'border-gray-300 dark:border-slate-600 hover:border-green-400'}`}
-              >
-                <FiUploadCloud className="w-12 h-12 text-gray-400 dark:text-gray-500" />
-                <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                  {isDragging ? "Drop files here" : "Drag & drop files here, or click to select"}
-                </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">PDF or JPG files accepted</p>
-                <input type="file" multiple accept=".pdf,.jpg,.jpeg" className="hidden" onChange={(e) => setFiles(prev => [...prev, ...e.target.files])} />
-              </div>
-              {files.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h3 className="font-semibold">Uploaded Files:</h3>
-                  {files.map((file, index) => (
-                    <motion.div key={index} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center justify-between bg-green-50 dark:bg-slate-800 p-2 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FiFileText className="text-green-600 dark:text-green-300"/>
-                        <span className="text-sm">{file.name}</span>
-                      </div>
-                      <button onClick={() => removeFile(index)} className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
-                        <FiX className="text-red-500"/>
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-
-            {/* Submit Button */}
-            <motion.div variants={itemVariants} className="lg:col-span-3 mt-8 flex justify-end">
-              <button type="submit" className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold shadow-lg hover:scale-105 transform transition-transform duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800">
-                <FiPlus />
-                Generate Chart
-              </button>
-            </motion.div>
-
-          </motion.div>
-        </form>
-      </main>
-
-      {mealPlan && (
-        <div>
-  <table className="w-full border-collapse border border-green-300 bg-white shadow-lg rounded-lg mt-6">
-    <thead>
-      <tr className="bg-green-600 text-white">
-        <th className="border border-green-300 px-4 py-2">Day</th>
-        <th className="border border-green-300 px-4 py-2">Breakfast</th>
-        <th className="border border-green-300 px-4 py-2">Lunch</th>
-        <th className="border border-green-300 px-4 py-2">Dinner</th>
-      </tr>
-    </thead>
-    <tbody>
-      {Object.entries(mealPlan).map(([day, meals]) => (
-        <tr key={day} className="text-center hover:bg-green-50">
-          <td className="border border-green-300 px-4 py-2 font-semibold text-green-700">{day}</td>
-          {["breakfast", "lunch", "dinner"].map((mealType) => (
-            <td key={mealType} className="border border-green-300 px-4 py-2">
-              {meals[mealType].map((dish, i) => (
-                <div key={i}>
-                  <strong>{dish.name}</strong> ({dish.calories} kcal, {dish.protein}g protein)
-                </div>
-              ))}
-            </td>
+      {plan?.recommendedMeals?.length > 0 ? (
+        <div className="mt-6 p-4 border rounded-xl shadow-md bg-gray-50">
+          <h2 className="text-xl font-semibold text-green-700">
+            Diet Plan for {formData.personalInfo.fullName}
+          </h2>
+          {plan.recommendedMeals.map((day, i) => (
+            <div key={i} className="mt-2 p-2 border-b rounded-md bg-white shadow-sm">
+              <h3 className="font-semibold text-indigo-700">Day {day.day}</h3>
+              <p><strong>Breakfast:</strong> {day.breakfast}</p>
+              <p><strong>Lunch:</strong> {day.lunch}</p>
+              <p><strong>Dinner:</strong> {day.dinner}</p>
+            </div>
           ))}
-        </tr>
-      ))}
-    </tbody>
-  </table>
-
- <button 
-      onClick={downloadPDF} 
-      className="flex items-center gap-2 mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-    >
-      <FiDownload /> Download PDF
-    </button>
-
-</div>
-  
-)
-
-}
-
+        </div>
+      ) : (
+        <p className="mt-4 text-gray-500">
+          No diet plan generated yet. Click the button above to generate.
+        </p>
+      )}
     </div>
   );
 }

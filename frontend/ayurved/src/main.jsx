@@ -9,7 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import PatientList from "./pages/Patients/PatientList";
 import PatientForm from "./pages/PatientForm"; // 1. Import the new component
 import DietPlanPage from "./pages/DietPlanPage";
-
+import Patient from "./component/Patient";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -19,6 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/patients" element={<PatientList />} />
         <Route path="/add-patient" element={<PatientForm />} /> 
          <Route path="/diet-plan/:id" element={<DietPlanPage />} /> 
+          <Route path="/diet-plan" element={<Patient />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
