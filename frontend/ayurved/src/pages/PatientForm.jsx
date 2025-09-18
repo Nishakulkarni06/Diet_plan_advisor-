@@ -2197,6 +2197,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function PatientForm() {
   const [plan, setPlan] = useState(null);
@@ -2298,38 +2299,203 @@ export default function PatientForm() {
   //   doc.save(`DietPlan_${formData.personalInfo.fullName}.pdf`);
   // };
 
+// const generatePDF = () => {
+//   if (!plan?.recommendedMeals?.length) return alert("No plan available");
+
+//   const meals = plan.recommendedMeals; // or normalizeMeals if you already use that
+
+//   const doc = new jsPDF();
+//   doc.setFontSize(16);
+//   doc.text(`Diet Plan for ${formData.personalInfo.fullName}`, 20, 20);
+
+//   let y = 40;
+
+//   const getMealText = meal => {
+//     if (!meal) return "Not Provided";
+//     if (Array.isArray(meal)) return meal.map(m => m.name || m).join(", "); // Handles array of objects or strings
+//     return meal.name || meal || "Not Provided"; // Handles single object or string
+//   };
+
+//   meals.forEach((day) => {
+//     doc.setFontSize(14);
+//     doc.text(`Day ${day.day || "1"}`, 20, y);
+//     doc.setFontSize(12);
+//     doc.text(`Breakfast: ${getMealText(day.breakfast)}`, 20, y + 8);
+//     doc.text(`Lunch: ${getMealText(day.lunch)}`, 20, y + 16);
+//     doc.text(`Dinner: ${getMealText(day.dinner)}`, 20, y + 24);
+//     y += 40;
+//     if (y > 750) {
+//       doc.addPage();
+//       y = 40;
+//     }
+//   });
+
+//   doc.save(`DietPlan_${formData.personalInfo.fullName}.pdf`);
+// };
+
+// --- Generate Stylish PDF ---
+// const generatePDF = () => {
+//   if (!plan?.recommendedMeals?.length) {
+//     alert("❌ No diet plan to generate PDF.");
+//     return;
+//   }
+
+//   const meals = plan.recommendedMeals;
+//   const doc = new jsPDF("p", "pt", "a4");
+//   const pageWidth = doc.internal.pageSize.width;
+
+//   // --- Header ---
+//   doc.setFillColor(76, 175, 80); // green header
+//   doc.rect(0, 0, pageWidth, 50, "F");
+//   doc.setFontSize(20);
+//   doc.setTextColor(255, 255, 255);
+//   doc.text(
+//     `Diet Plan for ${formData.personalInfo.fullName || "Patient"}`,
+//     pageWidth / 2,
+//     32,
+//     { align: "center" }
+//   );
+
+//   let y = 70;
+
+//   meals.forEach((day) => {
+//     // Box background
+//     doc.setFillColor(230, 230, 250); // lavender
+//     doc.roundedRect(14, y - 4, pageWidth - 28, 60, 5, 5, "F");
+
+//     doc.setFontSize(14);
+//     doc.setTextColor(0, 0, 0);
+//     doc.text(`Day ${day.day || "1"}`, 20, y);
+
+//     const getMealText = (meal) => {
+//       if (!meal) return "Not Provided";
+//       if (Array.isArray(meal))
+//         return meal.map((m) => m.name || m).join(", ");
+//       return meal.name || meal || "Not Provided";
+//     };
+
+//     doc.setFontSize(12);
+//     doc.text(`Breakfast: ${getMealText(day.breakfast)}`, 20, y + 18);
+//     doc.text(`Lunch: ${getMealText(day.lunch)}`, 20, y + 32);
+//     doc.text(`Dinner: ${getMealText(day.dinner)}`, 20, y + 46);
+
+//     y += 70;
+
+//     // Add new page if overflow
+//     if (y > 750) {
+//       doc.addPage();
+//       y = 50;
+//     }
+//   });
+
+//   // --- Footer ---
+//   const today = new Date();
+//   doc.setFontSize(10);
+//   doc.setTextColor(100);
+//   doc.text(
+//     `Generated on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`,
+//     pageWidth - 14,
+//     doc.internal.pageSize.height - 10,
+//     { align: "right" }
+//   );
+
+//   doc.save(`DietPlan_${formData.personalInfo.fullName || "Patient"}.pdf`);
+// };
+
+
 const generatePDF = () => {
-  if (!plan?.recommendedMeals?.length) return alert("No plan available");
+  if (!plan?.recommendedMeals?.length) {
+    alert("❌ No diet plan to generate PDF.");
+    return;
+  }
 
-  const meals = plan.recommendedMeals; // or normalizeMeals if you already use that
+  const meals = plan.recommendedMeals;
+  const doc = new jsPDF("p", "pt", "a4");
+  const pageWidth = doc.internal.pageSize.width;
 
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text(`Diet Plan for ${formData.personalInfo.fullName}`, 20, 20);
+  // --- Header ---
+  doc.setFillColor(76, 175, 80); // green header
+  doc.rect(0, 0, pageWidth, 50, "F");
+  doc.setFontSize(20);
+  doc.setTextColor(255, 255, 255);
+  doc.text(
+    `Diet Plan for ${formData.personalInfo.fullName || "Patient"}`,
+    pageWidth / 2,
+    32,
+    { align: "center" }
+  );
 
-  let y = 40;
+  // --- Prepare Table Data ---
+  // const tableBody = meals.map((day) => [
+  //   day.day || "1",
+  //   getMealText(day.breakfast),
+  //   getMealText(day.lunch),
+  //   getMealText(day.dinner),
+  // ]);
 
-  const getMealText = meal => {
-    if (!meal) return "Not Provided";
-    if (Array.isArray(meal)) return meal.map(m => m.name || m).join(", "); // Handles array of objects or strings
-    return meal.name || meal || "Not Provided"; // Handles single object or string
-  };
+  // --- Prepare Table Data ---
+const tableBody = meals.map((day) => [
+  day.day || "1",
+  getMealText(day.meals?.breakfast),
+  getMealText(day.meals?.lunch),
+  getMealText(day.meals?.dinner),
+]);
 
-  meals.forEach((day) => {
-    doc.setFontSize(14);
-    doc.text(`Day ${day.day || "1"}`, 20, y);
-    doc.setFontSize(12);
-    doc.text(`Breakfast: ${getMealText(day.breakfast)}`, 20, y + 8);
-    doc.text(`Lunch: ${getMealText(day.lunch)}`, 20, y + 16);
-    doc.text(`Dinner: ${getMealText(day.dinner)}`, 20, y + 24);
-    y += 40;
-    if (y > 750) {
-      doc.addPage();
-      y = 40;
-    }
+  // function getMealText(meal) {
+  //   if (!meal) return "Not Provided";
+  //   if (Array.isArray(meal)) return meal.map(m => m.name || m).join(", ");
+  //   return meal.name || meal || "Not Provided";
+  // }
+function getMealText(meal) {
+  if (!meal) return "Not Provided";
+
+  // If it's an array of meals
+  if (Array.isArray(meal)) {
+    return meal.map(m => {
+      if (typeof m === "string") return m;
+      if (typeof m === "object") return m.name || JSON.stringify(m);
+      return m;
+    }).join(", ");
+  }
+
+  // If it's a single object
+  if (typeof meal === "object") {
+    return meal.name || JSON.stringify(meal);
+  }
+
+  // Otherwise it's already a string/number
+  return meal;
+}
+
+
+  // --- Render Table ---
+  autoTable(doc, {
+    startY: 70,
+    head: [["Day", "Breakfast", "Lunch", "Dinner"]],
+    body: tableBody,
+    theme: "striped",
+    headStyles: { fillColor: [76, 175, 80], textColor: 255, fontStyle: "bold" },
+    styles: { fontSize: 10, cellPadding: 5 },
+    columnStyles: {
+      0: { cellWidth: 40 },
+      1: { cellWidth: 150 },
+      2: { cellWidth: 150 },
+      3: { cellWidth: 150 },
+    },
   });
 
-  doc.save(`DietPlan_${formData.personalInfo.fullName}.pdf`);
+  // --- Footer ---
+  const today = new Date();
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(
+    `Generated on: ${today.toLocaleDateString()} ${today.toLocaleTimeString()}`,
+    pageWidth - 14,
+    doc.internal.pageSize.height - 10,
+    { align: "right" }
+  );
+
+  doc.save(`DietPlan_${formData.personalInfo.fullName || "Patient"}.pdf`);
 };
 
   
