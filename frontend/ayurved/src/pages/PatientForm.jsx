@@ -537,25 +537,37 @@
 
 
 
-
 // src/components/PatientForm.jsx
+// Updated: Mint/emerald theme, bug fixes for controlled inputs, improved spacing & readability.
+// Add this to index.html <head> if you want the same typography:
+// <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+// And in tailwind.config.js: theme.extend.fontFamily.sans = ['Inter', 'ui-sans-serif', 'system-ui']
+
 import React, { useState, useMemo } from "react"; // CORRECTED THIS LINE
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- Helper Icon Components (for a polished look) ---
-const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>;
-const HeartIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>;
-const LeafIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 4.707a1 1 0 00-1.414-1.414L10 9.586 6.707 6.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8z" clipRule="evenodd" /></svg>;
-const ClipboardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>;
+// --- Helper Icon Components (kept simple) ---
+const UserIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+);
+const HeartIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+);
+const LeafIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 4.707a1 1 0 00-1.414-1.414L10 9.586 6.707 6.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8z" clipRule="evenodd" /></svg>
+);
+const ClipboardIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+);
 
 export default function PatientForm() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(0); // For multi-step form
 
-    // --- YOUR STATE & LOGIC (ENTIRELY UNCHANGED) ---
+    // --- Initial State ---
     const emptyPatient = {
         personalInfo: { fullName: "", dob: "", gender: "", age: "", contact: { phone: "", email: "" } },
         vitals: { height_cm: "", weight_kg: "", bmi: "", bp: "", pulseRate: "", respirationRate: "", temperature: "" },
@@ -569,6 +581,7 @@ export default function PatientForm() {
     };
     const [formData, setFormData] = useState(emptyPatient);
 
+    // --- Options ---
     const genderOptions = ["Male", "Female", "Other"];
     const prakritiOptions = ["Vata", "Pitta", "Kapha", "Vata-Pitta", "Pitta-Kapha", "Vata-Kapha"];
     const doshaOptions = ["Vata", "Pitta", "Kapha"];
@@ -581,7 +594,10 @@ export default function PatientForm() {
     const commonAllergies = ["None", "Peanuts", "Dairy", "Gluten", "Seafood"];
     const commonConditions = ["Hypertension", "Diabetes", "Thyroid", "PCOS", "Asthma"];
 
-    const updateNested = (section, key, value) => setFormData((prev) => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+    // --- State Updaters (robust & safe) ---
+    const updateNested = (section, key, value) => {
+        setFormData((prev) => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+    };
     const updateDeep = (path, value) => {
         setFormData((prev) => {
             const copy = JSON.parse(JSON.stringify(prev));
@@ -640,36 +656,57 @@ export default function PatientForm() {
             setLoading(false);
         }
     };
-    
-    // --- NEW: UI Primitives & Components ---
-    const Input = ({ label, ...rest }) => (
+
+    // --- UI primitives (fixed controlled inputs) ---
+    const Input = ({ label, value = "", onChange = () => {}, type = "text", placeholder = "", name, id }) => (
         <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-            <input className="w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" {...rest} />
+            <input
+                id={id}
+                name={name}
+                type={type}
+                value={value === undefined || value === null ? "" : value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+            />
         </div>
     );
-    const Select = ({ label, options = [], value, onChange }) => (
+
+    const Select = ({ label, options = [], value = "", onChange = () => {}, name }) => (
         <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-            <select className="w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={value} onChange={(e) => onChange(e.target.value)}>
+            <select
+                name={name}
+                value={value === undefined || value === null ? "" : value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+            >
                 <option value="">— select —</option>
                 {options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
         </div>
     );
-    const DatalistAdd = ({ label, suggestions = [], items = [], onAdd, onRemove, placeholder = "" }) => {
+
+    const DatalistAdd = ({ label, suggestions = [], items = [], onAdd = () => {}, onRemove = () => {}, placeholder = "" }) => {
         const [val, setVal] = useState("");
         return (
             <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
                 <div className="flex gap-2">
-                    <input list={`${label}-list`} value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} className="flex-1 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <input
+                        list={`${label}-list`}
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        placeholder={placeholder}
+                        className="flex-1 rounded-md border border-slate-200 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+                    />
                     <datalist id={`${label}-list`}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
-                    <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => { onAdd(val); setVal(""); }} className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700">Add</motion.button>
+                    <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => { onAdd(val); setVal(""); }} className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700">Add</motion.button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                     {items.map((it, i) => (
-                        <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium">
+                        <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
                             {it}
                             <button type="button" onClick={() => onRemove(i)} className="text-red-500 hover:text-red-700 font-bold">×</button>
                         </motion.span>
@@ -687,21 +724,21 @@ export default function PatientForm() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto">
+        <div className="min-h-screen bg-gradient-to-b from-[#f6fdf7] to-white p-4 sm:p-6 lg:p-8 font-sans">
+            <div className="max-w-6xl mx-auto">
                 <header className="mb-8 text-center">
-                    <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">Ayurvedic Diet Planner</h1>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-emerald-900">Ayurvedic Diet Planner</h1>
                     <p className="text-slate-500 mt-2">Create a personalized, holistic diet plan in minutes.</p>
                 </header>
 
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* --- LEFT: Multi-step Form --- */}
-                    <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200/80">
+                    <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100">
                         {/* Stepper Navigation */}
-                        <div className="mb-8 flex items-center justify-between border-b border-slate-200 pb-4">
+                        <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
                             {steps.map((s, i) => (
-                                <div key={s.name} className={`flex items-center gap-2 text-sm font-medium ${step >= i ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${step >= i ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                <div key={s.name} className={`flex items-center gap-3 text-sm ${step >= i ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${step >= i ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
                                         {s.icon}
                                     </div>
                                     <span className="hidden sm:inline">{s.name}</span>
@@ -711,28 +748,30 @@ export default function PatientForm() {
 
                         {/* Form Content */}
                         <AnimatePresence mode="wait">
-                            <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }}>
+                            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.28 }}>
                                 {step === 0 && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">Personal & Contact Info</h3>
-                                        <Input label="Full name" value={formData.personalInfo.fullName} onChange={(e) => updateNested("personalInfo", "fullName", e.target.value)} placeholder="e.g., Rohan Verma" />
-                                        <Input label="DOB" type="date" value={formData.personalInfo.dob} onChange={(e) => updateNested("personalInfo", "dob", e.target.value)} />
+                                        <Input label="Full name" value={formData.personalInfo.fullName} onChange={(v) => updateNested("personalInfo", "fullName", v)} placeholder="e.g., Rohan Verma" />
+                                        <Input label="DOB" type="date" value={formData.personalInfo.dob} onChange={(v) => updateNested("personalInfo", "dob", v)} />
                                         <Select label="Gender" options={genderOptions} value={formData.personalInfo.gender} onChange={(v) => updateNested("personalInfo", "gender", v)} />
-                                        <Input label="Phone" value={formData.personalInfo.contact.phone} onChange={(e) => updateDeep(["personalInfo", "contact", "phone"], e.target.value)} placeholder="+91xxxxxxxxxx" />
-                                        <Input label="Email" type="email" value={formData.personalInfo.contact.email} onChange={(e) => updateDeep(["personalInfo", "contact", "email"], e.target.value)} placeholder="name@example.com" />
+                                        <Input label="Phone" value={formData.personalInfo.contact.phone} onChange={(v) => updateDeep(["personalInfo", "contact", "phone"], v)} placeholder="+91xxxxxxxxxx" />
+                                        <Input label="Email" type="email" value={formData.personalInfo.contact.email} onChange={(v) => updateDeep(["personalInfo", "contact", "email"], v)} placeholder="name@example.com" />
                                     </div>
                                 )}
+
                                 {step === 1 && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">Vitals & Ayurvedic Profile</h3>
-                                        <Input label="Height (cm)" type="number" value={formData.vitals.height_cm} onChange={(e) => updateNested("vitals", "height_cm", e.target.value)} />
-                                        <Input label="Weight (kg)" type="number" value={formData.vitals.weight_kg} onChange={(e) => updateNested("vitals", "weight_kg", e.target.value)} />
-                                        <Input label="BP" value={formData.vitals.bp} onChange={(e) => updateNested("vitals", "bp", e.target.value)} placeholder="e.g. 120/80" />
+                                        <Input label="Height (cm)" type="number" value={formData.vitals.height_cm} onChange={(v) => updateNested("vitals", "height_cm", v)} />
+                                        <Input label="Weight (kg)" type="number" value={formData.vitals.weight_kg} onChange={(v) => updateNested("vitals", "weight_kg", v)} />
+                                        <Input label="BP" value={formData.vitals.bp} onChange={(v) => updateNested("vitals", "bp", v)} placeholder="e.g. 120/80" />
                                         <Select label="Prakriti" options={prakritiOptions} value={formData.ayurvedaProfile.prakriti} onChange={(v) => updateNested("ayurvedaProfile", "prakriti", v)} />
                                         <Select label="Dosha Imbalance" options={doshaOptions} value={formData.ayurvedaProfile.doshaImbalance} onChange={(v) => updateNested("ayurvedaProfile", "doshaImbalance", v)} />
                                         <Select label="Agni" options={agniOptions} value={formData.ayurvedaProfile.agni} onChange={(v) => updateNested("ayurvedaProfile", "agni", v)} />
                                     </div>
                                 )}
+
                                 {step === 2 && (
                                     <div className="space-y-6">
                                         <h3 className="text-xl font-semibold text-slate-700">Lifestyle & Medical History</h3>
@@ -746,18 +785,19 @@ export default function PatientForm() {
                                         </div>
                                     </div>
                                 )}
+
                                 {step === 3 && (
-                                     <div className="space-y-6">
+                                    <div className="space-y-6">
                                         <h3 className="text-xl font-semibold text-slate-700">Preferences, Goals & Attachments</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                             <DatalistAdd label="Avoid Foods" suggestions={commonFoods} items={formData.dietaryPreferences.avoidFoods} onAdd={(v) => addToArray("dietaryPreferences", "avoidFoods", v)} onRemove={(i) => removeFromArray("dietaryPreferences", "avoidFoods", i)} />
                                             <DatalistAdd label="Preferred Foods" suggestions={commonFoods} items={formData.dietaryPreferences.preferredFoods} onAdd={(v) => addToArray("dietaryPreferences", "preferredFoods", v)} onRemove={(i) => removeFromArray("dietaryPreferences", "preferredFoods", i)} />
-                                            <Input label="Short-term goal" value={formData.goals.shortTerm} onChange={(e) => updateNested("goals", "shortTerm", e.target.value)} placeholder="e.g., Reduce pitta" />
-                                            <Input label="Long-term goal" value={formData.goals.longTerm} onChange={(e) => updateNested("goals", "longTerm", e.target.value)} placeholder="e.g., Prevent diabetes" />
+                                            <Input label="Short-term goal" value={formData.goals.shortTerm} onChange={(v) => updateNested("goals", "shortTerm", v)} placeholder="e.g., Reduce pitta" />
+                                            <Input label="Long-term goal" value={formData.goals.longTerm} onChange={(v) => updateNested("goals", "longTerm", v)} placeholder="e.g., Prevent diabetes" />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-600 mb-1">Attachments (Lab Reports, etc.)</label>
-                                            <input type="file" multiple onChange={(e) => handleAttachmentsChange(e.target.files)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                                            <input type="file" multiple onChange={(e) => handleAttachmentsChange(e.target.files)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"/>
                                         </div>
                                     </div>
                                 )}
@@ -766,15 +806,15 @@ export default function PatientForm() {
 
                         {/* Navigation Buttons */}
                         <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-center">
-                            <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className="px-4 py-2 bg-slate-50 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Previous
                             </motion.button>
                             {step < steps.length - 1 ? (
-                                <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.min(steps.length - 1, s + 1))} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700">
+                                <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.min(steps.length - 1, s + 1))} className="px-6 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700">
                                     Next
                                 </motion.button>
                             ) : (
-                                <motion.button type="submit" whileTap={{ scale: 0.95 }} disabled={loading} onClick={handleSubmit} className="px-6 py-2 bg-cyan-500 text-white font-bold rounded-md shadow-lg hover:bg-cyan-600 disabled:bg-gray-400">
+                                <motion.button type="submit" whileTap={{ scale: 0.95 }} disabled={loading} onClick={handleSubmit} className="px-6 py-2 bg-emerald-500 text-white font-bold rounded-md shadow-lg hover:bg-emerald-600 disabled:bg-gray-400">
                                     {loading ? "Generating..." : "Save & Generate Plan"}
                                 </motion.button>
                             )}
@@ -782,7 +822,7 @@ export default function PatientForm() {
                     </div>
 
                     {/* --- RIGHT: Sticky Preview Card --- */}
-                    <div className="relative">
+                    <div className="relative lg:col-span-1">
                          <div className="sticky top-8">
                             <PreviewCard formData={formData} onRefresh={() => setFormData(getCalculatedFormData())}/>
                         </div>
@@ -793,19 +833,19 @@ export default function PatientForm() {
     );
 }
 
-// --- NEW: The Eye-Catching Preview Card Component ---
+// --- Preview Card Component ---
 const PreviewCard = ({ formData, onRefresh }) => {
     const bmi = Number(formData.calculated?.bmi || formData.vitals?.bmi || 0);
     const water = Number(formData.lifestyle?.waterIntake_l || 0);
 
     const bmiData = useMemo(() => {
-        if (!bmi || bmi < 10 || bmi > 50) return { percent: 0, color: 'stroke-slate-300', label: 'N/A' };
+        if (!bmi || bmi < 10 || bmi > 50) return { percent: 0, color: 'bg-slate-100 text-slate-700', label: 'N/A' };
         const percent = Math.min(100, Math.max(0, ((bmi - 15) / 25) * 100)); // Normalize 15-40 BMI range
-        let color = 'stroke-cyan-400';
+        let color = 'bg-emerald-200 text-emerald-800';
         let label = 'Healthy';
-        if (bmi < 18.5) { color = 'stroke-yellow-400'; label = 'Underweight'; }
-        else if (bmi >= 25 && bmi < 30) { color = 'stroke-orange-400'; label = 'Overweight'; }
-        else if (bmi >= 30) { color = 'stroke-red-500'; label = 'Obese'; }
+        if (bmi < 18.5) { color = 'bg-yellow-100 text-yellow-800'; label = 'Underweight'; }
+        else if (bmi >= 25 && bmi < 30) { color = 'bg-orange-100 text-orange-800'; label = 'Overweight'; }
+        else if (bmi >= 30) { color = 'bg-red-100 text-red-800'; label = 'Obese'; }
         return { percent, color, label };
     }, [bmi]);
 
@@ -813,64 +853,60 @@ const PreviewCard = ({ formData, onRefresh }) => {
 
     return (
         <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden"
+            transition={{ duration: 0.4 }}
+            className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-80"
         >
-            <div className="p-6 bg-gradient-to-br from-indigo-600 to-indigo-700 text-white">
+            <div className="p-5 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold border-2 border-white/30">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-2 border-white/25">
                         {formData.personalInfo.fullName ? formData.personalInfo.fullName.charAt(0).toUpperCase() : "P"}
                     </div>
-                    <div>
-                        <h3 className="text-xl font-bold truncate">{formData.personalInfo.fullName || "Patient Preview"}</h3>
-                        <p className="text-sm text-indigo-200">
-                            Age: {formData.calculated.age || "-"} • {formData.personalInfo.gender || "Gender"}
-                        </p>
+                    <div className="truncate">
+                        <h3 className="text-lg font-bold truncate">{formData.personalInfo.fullName || "Patient Preview"}</h3>
+                        <p className="text-sm text-emerald-200 truncate">Age: {formData.calculated.age || "-"} • {formData.personalInfo.gender || "Gender"}</p>
                     </div>
                 </div>
             </div>
-            
-            <div className="p-6 space-y-6">
-                <h4 className="text-lg font-semibold text-slate-700 text-center">Health Snapshot</h4>
-                
+
+            <div className="p-6 space-y-5">
+                <h4 className="text-md font-semibold text-slate-700 text-center">Health Snapshot</h4>
+
                 {/* BMI Chart */}
                 <div className="text-center">
-                    <div className="relative w-40 h-40 mx-auto">
+                    <div className="relative w-36 h-36 mx-auto">
                         <svg className="w-full h-full" viewBox="0 0 100 100">
-                            <motion.circle cx="50" cy="50" r="45" stroke="#e2e8f0" strokeWidth="10" fill="none" />
+                            <circle cx="50" cy="50" r="45" stroke="#eef2f3" strokeWidth="10" fill="none" />
                             <motion.circle
                                 cx="50" cy="50" r="45"
-                                className={bmiData.color}
+                                stroke={bmiData.color.includes('emerald') ? '#10b981' : (bmiData.color.includes('yellow') ? '#d97706' : (bmiData.color.includes('orange') ? '#f97316' : '#ef4444'))}
                                 strokeWidth="10"
                                 fill="none"
                                 strokeLinecap="round"
-                                pathLength="1"
-                                initial={{ strokeDasharray: "0 1" }}
-                                animate={{ strokeDasharray: `${bmiData.percent / 100} 1` }}
-                                transition={{ duration: 1.2, ease: "circOut" }}
+                                style={{ strokeDasharray: '283', strokeDashoffset: 283 - (283 * (bmiData.percent / 100)) }}
+                                initial={{ strokeDashoffset: 283 }}
+                                animate={{ strokeDashoffset: 283 - (283 * (bmiData.percent / 100)) }}
+                                transition={{ duration: 1.1, ease: 'circOut' }}
                             />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-3xl font-extrabold text-slate-800">{bmi || "-"}</span>
-                            <span className="text-sm font-medium text-slate-500">BMI</span>
-                            <span className={`mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${bmiData.color.replace('stroke-', 'bg-').replace('-400', '-100').replace('-500', '-100')} ${bmiData.color.replace('stroke-', 'text-').replace('-400', '-700').replace('-500', '-700')}`}>
-                                {bmiData.label}
-                            </span>
+                            <span className="text-2xl font-extrabold text-slate-800">{bmi || '-'}</span>
+                            <span className="text-xs text-slate-500">BMI</span>
+                            <span className={`mt-2 inline-flex items-center justify-center text-xs font-semibold px-2 py-0.5 rounded-full ${bmiData.color}`}>{bmiData.label}</span>
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Water Intake Bar */}
                 <div>
                     <div className="flex justify-between text-sm font-medium text-slate-600 mb-1">
                         <span>Daily Water Intake</span>
-                        <span className="font-bold text-indigo-600">{water || "0"} L / 3.5 L</span>
+                        <span className="font-bold text-emerald-600">{water || "0"} L / 3.5 L</span>
                     </div>
-                    <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
                         <motion.div
-                            className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full"
+                            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
                             initial={{ width: 0 }}
                             animate={{ width: `${waterPercent}%` }}
                             transition={{ duration: 1, ease: "easeInOut" }}
@@ -881,7 +917,7 @@ const PreviewCard = ({ formData, onRefresh }) => {
                 <motion.button 
                     whileTap={{ scale: 0.97 }}
                     onClick={onRefresh} 
-                    className="w-full mt-4 px-4 py-2 bg-indigo-100 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-200 transition-colors"
+                    className="w-full mt-2 px-4 py-2 bg-emerald-50 text-emerald-700 font-semibold rounded-lg hover:bg-emerald-100 transition-colors"
                 >
                     Refresh Snapshot
                 </motion.button>

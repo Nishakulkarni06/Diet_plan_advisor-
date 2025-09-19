@@ -192,298 +192,296 @@ import axios from "axios";
 import jsPDF from "jspdf";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- Helper Icons for UI Polish ---
-const BreakfastIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 00-1 1v1a1 1 0 002 0V3a1 1 0 00-1-1zM4 6a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 9a1 1 0 011-1h14a1 1 0 110 2H3a1 1 0 01-1-1z" /><path fillRule="evenodd" d="M18 11H2v4a2 2 0 002 2h12a2 2 0 002-2v-4z" clipRule="evenodd" /></svg>;
-const LunchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>;
-const DinnerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor"><path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V5a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 00.553.894l4 2A1 1 0 0011 17z" /></svg>;
-const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>;
+const Icon = ({ children, className = "h-5 w-5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">{children}</svg>
+);
+const BreakfastIcon = () => (
+  <Icon className="h-5 w-5 text-amber-500"><path d="M3 7a1 1 0 011-1h16a1 1 0 110 2H4a1 1 0 01-1-1zm2 4a1 1 0 000 2h14a1 1 0 000-2H5z" /></Icon>
+);
+const LunchIcon = () => (
+  <Icon className="h-5 w-5 text-teal-500"><path d="M12 2a1 1 0 011 1v8h8a1 1 0 110 2h-8v8a1 1 0 11-2 0v-8H3a1 1 0 110-2h8V3a1 1 0 011-1z" /></Icon>
+);
+const DinnerIcon = () => (
+  <Icon className="h-5 w-5 text-emerald-500"><path d="M4 6h16v2H4zM4 10h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z" /></Icon>
+);
+const DownloadIcon = () => (
+  <Icon className="h-5 w-5"><path d="M12 3v10m0 0l4-4m-4 4l-4-4M4 19h16" strokeWidth="1.5" stroke="#ffffff" strokeLinecap="round" strokeLinejoin="round" /></Icon>
+);
 
 const defaultFormData = {
-    personalInfo: { fullName: "Patient" },
-    vitals: {},
-    calculated: {},
+  personalInfo: { fullName: "Patient" },
+  vitals: {},
+  calculated: {},
 };
 
 export default function DietPlanPage() {
-    const location = useLocation();
-    // **FIX**: Get the entire formData object passed from the previous page
-    const passedFormData = location.state?.formData;
+  const location = useLocation();
+  const passedFormData = location.state?.formData;
 
-    const [plan, setPlan] = useState(null);
-    const [formData, setFormData] = useState(passedFormData || defaultFormData);
-    const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState(null);
+  const [formData, setFormData] = useState(passedFormData || defaultFormData);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => { fetchLatestPlan(); }, []);
+  useEffect(() => { fetchLatestPlan(); /* eslint-disable-line */ }, []);
 
-    // --- YOUR CORE LOGIC (UNCHANGED) ---
-    const normalizeMeals = (rawMeals) => {
-        if (!rawMeals || rawMeals.length === 0) return [];
-        return rawMeals.map((day, i) => ({
-            day: day.day || day.Day || i + 1,
-            breakfast: day.breakfast || day.meals?.breakfast?.items?.map((it) => it.Dish_Name).join(", ") || "",
-            lunch: day.lunch || day.meals?.lunch?.items?.map((it) => it.Dish_Name).join(", ") || "",
-            dinner: day.dinner || day.meals?.dinner?.items?.map((it) => it.Dish_Name).join(", ") || "",
+  const normalizeMeals = (rawMeals) => {
+    if (!rawMeals || rawMeals.length === 0) return [];
+    return rawMeals.map((day, i) => ({
+      day: day.day || day.Day || i + 1,
+      breakfast: day.breakfast || day.meals?.breakfast?.items?.map((it) => it.Dish_Name).join(", ") || "",
+      lunch: day.lunch || day.meals?.lunch?.items?.map((it) => it.Dish_Name).join(", ") || "",
+      dinner: day.dinner || day.meals?.dinner?.items?.map((it) => it.Dish_Name).join(", ") || "",
+    }));
+  };
+
+  const fetchLatestPlan = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("http://localhost:3000/fetch-latest-plan");
+      const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
+      setPlan({ recommendedMeals: normalizeMeals(rawMeals) });
+
+      if (res.data?.patientInfo) {
+        setFormData((prev) => ({
+          ...prev,
+          ...res.data.patientInfo,
+          personalInfo: { ...prev.personalInfo, ...res.data.patientInfo.personalInfo },
+          vitals: { ...prev.vitals, ...res.data.patientInfo.vitals },
+          calculated: { ...prev.calculated, ...res.data.patientInfo.calculated },
         }));
-    };
-    const fetchLatestPlan = async () => {
-        setLoading(true);
-        try {
-            const res = await axios.get("http://localhost:3000/fetch-latest-plan");
-            const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
-            setPlan({ recommendedMeals: normalizeMeals(rawMeals) });
-            
-            // **FIX**: If API returns fresh data, merge it without overwriting initial data
-            if (res.data?.patientInfo) {
-                setFormData((prev) => ({
-                    ...prev,
-                    ...res.data.patientInfo,
-                    personalInfo: { ...prev.personalInfo, ...res.data.patientInfo.personalInfo },
-                    vitals: { ...prev.vitals, ...res.data.patientInfo.vitals },
-                    calculated: { ...prev.calculated, ...res.data.patientInfo.calculated },
-                }));
-            }
-        } catch (err) {
-            console.error("Failed to fetch latest plan", err);
-            setPlan({ recommendedMeals: [] });
-        } finally {
-            setLoading(false);
-        }
-    };
+      }
+    } catch (err) {
+      console.error("Failed to fetch latest plan", err);
+      setPlan({ recommendedMeals: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // --- RE-THEMED: STYLISH GREEN PDF GENERATOR ---
-    const generatePDF = () => {
-        if (!plan?.recommendedMeals?.length) {
-            alert("❌ No diet plan to generate PDF.");
-            return;
-        }
-        const doc = new jsPDF("p", "pt", "a4");
-        const pageWidth = doc.internal.pageSize.width;
-        const pageHeight = doc.internal.pageSize.height;
-        const margin = 40;
+  const generatePDF = () => {
+    if (!plan?.recommendedMeals?.length) {
+      alert("❌ No diet plan to generate PDF.");
+      return;
+    }
+    const doc = new jsPDF("p", "pt", "a4");
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 40;
 
-        const addPageContent = () => {
-            // Header (Green Theme)
-            doc.setFillColor(16, 185, 129); // emerald-500
-            doc.rect(0, 0, pageWidth, 80, "F");
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(24);
-            doc.setTextColor(255, 255, 255);
-            doc.text("Personalized Diet Plan", margin, 40);
-            doc.setFontSize(12);
-            doc.setTextColor(209, 250, 229); // emerald-100
-            doc.text(`For: ${formData.personalInfo.fullName}`, margin, 60);
-
-            // Sidebar
-            doc.setFillColor(240, 253, 244); // emerald-50
-            doc.rect(margin, 100, 150, pageHeight - 160, "F");
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(5, 102, 72); // emerald-800
-            doc.setFontSize(11);
-            doc.text("Patient Summary", margin + 15, 120);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(20, 83, 45); // emerald-700
-            // **FIX**: Correctly access age and BMI
-            doc.text(`Age: ${formData.calculated?.age || formData.personalInfo?.age || "-"}`, margin + 15, 145);
-            doc.text(`BMI: ${formData.calculated?.bmi || formData.vitals?.bmi || "-"}`, margin + 15, 160);
-            
-            doc.setFont("helvetica", "bold");
-            doc.text("General Advice", margin + 15, 200);
-            const tips = doc.splitTextToSize("• Stay hydrated.\n• Eat mindfully.\n• Prefer fresh, seasonal foods.\n• Avoid eating late at night.", 120);
-            doc.setFont("helvetica", "normal");
-            doc.text(tips, margin + 15, 215);
-
-            // Footer
-            doc.setFillColor(16, 185, 129); // emerald-500
-            doc.rect(0, pageHeight - 40, pageWidth, 40, "F");
-            doc.setFontSize(9);
-            doc.setTextColor(209, 250, 229); // emerald-100
-            doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, pageHeight - 18);
-            doc.text("Ayurvedic Diet Advisor", pageWidth - margin, pageHeight - 18, { align: "right" });
-        };
-        
-        addPageContent();
-        let y = 120;
-        const contentX = margin + 150 + 20;
-        const contentWidth = pageWidth - contentX - margin;
-
-        plan.recommendedMeals.forEach((day) => {
-            const dayTitle = `Day ${day.day}`;
-            const mealText = `Breakfast:\n${day.breakfast || "-"}\n\nLunch:\n${day.lunch || "-"}\n\nDinner:\n${day.dinner || "-"}`;
-            
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.setTextColor(6, 78, 59); // emerald-900
-            const titleHeight = doc.getTextDimensions(dayTitle).h;
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            const bodyLines = doc.splitTextToSize(mealText, contentWidth);
-            const bodyHeight = bodyLines.length * 12;
-            const blockHeight = titleHeight + bodyHeight + 30;
-
-            if (y + blockHeight > pageHeight - 60) {
-                doc.addPage();
-                addPageContent();
-                y = 120;
-            }
-            
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.text(dayTitle, contentX, y);
-            y += titleHeight + 5;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(20, 83, 45); // emerald-700
-            doc.text(bodyLines, contentX, y);
-            y += bodyHeight + 20;
-        });
-
-        const safeName = (formData.personalInfo.fullName || "Patient").replace(/\s+/g, "_");
-        doc.save(`DietPlan_${safeName}.pdf`);
+    const addHeader = () => {
+      doc.setFillColor(237, 253, 245);
+      doc.rect(0, 0, pageWidth, 90, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(6, 78, 59);
+      doc.text("Ayurvedic Diet Plan", margin, 48);
+      doc.setFontSize(11);
+      doc.setTextColor(16, 185, 129);
+      doc.text(`For: ${formData.personalInfo.fullName || "Patient"}`, margin, 66);
     };
 
-    const mealLengths = useMemo(() => {
-        if (!plan?.recommendedMeals) return { b: 0, l: 0, d: 0 };
-        let b = 0, l = 0, d = 0;
-        plan.recommendedMeals.forEach((m) => {
-            b += (m.breakfast || "").length;
-            l += (m.lunch || "").length;
-            d += (m.dinner || "").length;
-        });
-        const total = Math.max(1, b + l + d);
-        return { b: (b / total) * 100, l: (l / total) * 100, d: (d / total) * 100 };
-    }, [plan]);
+    const addFooter = () => {
+      doc.setFillColor(244, 255, 250);
+      doc.rect(0, pageHeight - 50, pageWidth, 50, "F");
+      doc.setFontSize(9);
+      doc.setTextColor(90, 120, 100);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, pageHeight - 28);
+    };
 
-    return (
-        <div className="min-h-screen bg-emerald-50/50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto">
-                <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-4xl font-extrabold text-emerald-900 tracking-tight">Your Diet Plan</h1>
-                        <p className="text-slate-500 mt-2">A 7-day holistic meal plan for <span className="font-semibold text-emerald-600">{formData.personalInfo.fullName}</span>.</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                         <motion.button whileTap={{ scale: 0.95 }} onClick={generatePDF} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow-lg shadow-emerald-200/80 hover:bg-emerald-700 transition">
-                            <DownloadIcon /> Download PDF
-                        </motion.button>
-                        <Link to="/" className="px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-slate-100 transition" title="Edit Form">✏️</Link>
-                    </div>
-                </header>
+    addHeader();
 
-                <main className="grid lg:grid-cols-3 gap-8 items-start">
-                    <div className="lg:col-span-2 space-y-4">
-                        <AnimatePresence>
-                            {loading ? (
-                                <div className="p-8 text-center text-slate-500">Loading your plan...</div>
-                            ) : plan?.recommendedMeals?.length > 0 ? (
-                                plan.recommendedMeals.map((day, i) => (
-                                    <motion.article
-                                        key={day.day}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: i * 0.07, duration: 0.5, ease: "easeOut" }}
-                                        className="bg-white p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:border-emerald-300 transition-all duration-300"
-                                    >
-                                        <h3 className="text-lg font-bold text-emerald-700 mb-4">Day {day.day}</h3>
-                                        <div className="space-y-3">
-                                            <div className="flex items-start gap-3"><BreakfastIcon /><p><span className="font-semibold text-slate-700">Breakfast:</span> {day.breakfast || "—"}</p></div>
-                                            <div className="flex items-start gap-3"><LunchIcon /><p><span className="font-semibold text-slate-700">Lunch:</span> {day.lunch || "—"}</p></div>
-                                            <div className="flex items-start gap-3"><DinnerIcon /><p><span className="font-semibold text-slate-700">Dinner:</span> {day.dinner || "—"}</p></div>
-                                        </div>
-                                    </motion.article>
-                                ))
-                            ) : (
-                                <div className="p-8 text-center bg-white rounded-xl shadow-md text-slate-500">
-                                    Could not find a diet plan. <Link to="/" className="text-emerald-600 font-semibold">Create a new one.</Link>
-                                </div>
-                            )}
-                        </AnimatePresence>
-                    </div>
+    let y = 110;
+    const rightCol = margin + 220;
+    const contentWidth = pageWidth - rightCol - margin;
 
-                    <aside className="relative">
-                        <div className="sticky top-8">
-                           <SummaryCard patient={formData} mealDistribution={mealLengths} />
-                        </div>
-                    </aside>
-                </main>
+    plan.recommendedMeals.forEach((day) => {
+      if (y > pageHeight - 140) {
+        doc.addPage();
+        addHeader();
+        y = 110;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(6, 78, 59);
+      doc.text(`Day ${day.day}`, rightCol, y);
+      y += 18;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(40, 60, 50);
+
+      const mealText = `Breakfast: ${day.breakfast || "-"}\n\nLunch: ${day.lunch || "-"}\n\nDinner: ${day.dinner || "-"}`;
+      const lines = doc.splitTextToSize(mealText, contentWidth);
+      doc.text(lines, rightCol, y);
+      y += lines.length * 12 + 16;
+    });
+
+    addFooter();
+    const safeName = (formData.personalInfo.fullName || "Patient").replace(/\s+/g, "_");
+    doc.save(`DietPlan_${safeName}.pdf`);
+  };
+
+  const mealLengths = useMemo(() => {
+    if (!plan?.recommendedMeals) return { b: 0, l: 0, d: 0 };
+    let b = 0, l = 0, d = 0;
+    plan.recommendedMeals.forEach((m) => {
+      b += (m.breakfast || "").length;
+      l += (m.lunch || "").length;
+      d += (m.dinner || "").length;
+    });
+    const total = Math.max(1, b + l + d);
+    return { b: (b / total) * 100, l: (l / total) * 100, d: (d / total) * 100 };
+  }, [plan]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#f7fdf9] to-white p-6 font-sans">
+      <div className="max-w-7xl mx-auto grid grid-cols-12 gap-6">
+        {/* Left aside - minimal brand only */}
+        <aside className="col-span-12 lg:col-span-3">
+          <div className="bg-white rounded-2xl p-5 shadow-xl border border-slate-100 sticky top-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">DR</div>
+              <div>
+                <div className="text-sm font-semibold text-emerald-900">Ayurvedic Diet Admin</div>
+                <div className="text-xs text-slate-400">Doctor Dashboard</div>
+              </div>
             </div>
-        </div>
-    );
+            <div className="text-sm text-slate-500">&nbsp;</div>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <main className="col-span-12 lg:col-span-6">
+          <header className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-extrabold text-emerald-900">Your Diet Plan</h1>
+              <p className="text-sm text-slate-500 mt-1">A 7-day holistic meal plan for <span className="font-semibold text-emerald-700">{formData.personalInfo.fullName}</span></p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <motion.button whileTap={{ scale: 0.97 }} onClick={generatePDF} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition">
+                <DownloadIcon />
+                <span>Download PDF</span>
+              </motion.button>
+              <Link to="/" className="px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50 transition" title="Edit Form">✏️</Link>
+            </div>
+          </header>
+
+          <section className="space-y-4">
+            <AnimatePresence>
+              {loading ? (
+                <div className="p-8 text-center text-slate-500 bg-white rounded-2xl shadow">Loading your plan...</div>
+              ) : plan?.recommendedMeals?.length > 0 ? (
+                plan.recommendedMeals.map((day, i) => (
+                  <motion.article key={day.day} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="bg-white p-5 rounded-2xl shadow border border-slate-100">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-lg font-bold text-emerald-700">Day {day.day}</h3>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3">
+                      <div className="flex items-start gap-3"><BreakfastIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Breakfast:</span> {day.breakfast || '—'}</p></div>
+                      <div className="flex items-start gap-3"><LunchIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Lunch:</span> {day.lunch || '—'}</p></div>
+                      <div className="flex items-start gap-3"><DinnerIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Dinner:</span> {day.dinner || '—'}</p></div>
+                    </div>
+                  </motion.article>
+                ))
+              ) : (
+                <div className="p-8 text-center bg-white rounded-2xl shadow">Could not find a diet plan. <Link to="/" className="text-emerald-600 font-semibold">Create a new one.</Link></div>
+              )}
+            </AnimatePresence>
+          </section>
+        </main>
+
+        {/* Right summary only */}
+        <aside className="col-span-12 lg:col-span-3">
+          <div className="sticky top-6">
+            <SummaryCard patient={formData} mealDistribution={mealLengths} />
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
 }
 
+/* ---------- Presentational children ---------- */
+
 const SummaryCard = ({ patient, mealDistribution }) => {
-    return (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.5 }} className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
-            <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-center">
-                <h3 className="text-xl font-bold">Plan Summary</h3>
-                <p className="text-sm text-emerald-200">Meal Distribution</p>
-            </div>
-            <div className="p-6 space-y-6">
-                <DonutChart data={[
-                    { name: 'Breakfast', value: mealDistribution.b, color: '#f59e0b' }, // amber-500
-                    { name: 'Lunch', value: mealDistribution.l, color: '#14b8a6' }, // teal-500
-                    { name: 'Dinner', value: mealDistribution.d, color: '#10b981' } // emerald-500
-                ]} />
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"/>Breakfast</span><span className="font-semibold">{Math.round(mealDistribution.b)}%</span></div>
-                    <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-teal-500"/>Lunch</span><span className="font-semibold">{Math.round(mealDistribution.l)}%</span></div>
-                    <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"/>Dinner</span><span className="font-semibold">{Math.round(mealDistribution.d)}%</span></div>
-                </div>
-                <div className="pt-4 border-t border-slate-200 grid grid-cols-2 text-center">
-                    <div>
-                        <div className="text-xs text-slate-500">Age</div>
-                        <div className="text-lg font-bold text-slate-800">{patient.calculated?.age || patient.personalInfo?.age || "-"}</div>
-                    </div>
-                    <div>
-                        <div className="text-xs text-slate-500">BMI</div>
-                        <div className="text-lg font-bold text-slate-800">{patient.calculated?.bmi || patient.vitals?.bmi || "-"}</div>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+      <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-center">
+        <h3 className="text-lg font-bold">Plan Summary</h3>
+        <p className="text-xs text-emerald-100 mt-1">Meal Distribution</p>
+      </div>
+      <div className="p-6 space-y-4">
+        <DonutChart data={[
+          { name: 'Breakfast', value: mealDistribution.b, color: '#f59e0b' },
+          { name: 'Lunch', value: mealDistribution.l, color: '#14b8a6' },
+          { name: 'Dinner', value: mealDistribution.d, color: '#10b981' }
+        ]} />
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" />Breakfast</span><span className="font-semibold">{Math.round(mealDistribution.b)}%</span></div>
+          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-teal-500" />Lunch</span><span className="font-semibold">{Math.round(mealDistribution.l)}%</span></div>
+          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" />Dinner</span><span className="font-semibold">{Math.round(mealDistribution.d)}%</span></div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-100 grid grid-cols-2 text-center">
+          <div>
+            <div className="text-xs text-slate-400">Age</div>
+            <div className="text-lg font-bold text-slate-800">{patient.calculated?.age || patient.personalInfo?.age || '-'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400">BMI</div>
+            <div className="text-lg font-bold text-slate-800">{patient.calculated?.bmi || patient.vitals?.bmi || '-'}</div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 };
 
 const DonutChart = ({ data }) => {
-    const size = 150;
-    const strokeWidth = 15;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    let total = 0;
+  const size = 140;
+  const strokeWidth = 14;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
 
-    const paths = data.map(item => {
-        const dashOffset = circumference * (1 - (total + item.value) / 100);
-        total += item.value;
-        return { ...item, dashOffset };
-    }).reverse();
+  const normalized = data.map(item => ({ ...item, value: Math.max(0, item.value || 0) }));
+  const sum = normalized.reduce((s, it) => s + it.value, 0) || 1;
 
-    return (
-        <div className="relative w-40 h-40 mx-auto flex items-center justify-center">
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-                <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth} />
-                <AnimatePresence>
-                    {paths.map((p, i) => (
-                        <motion.circle
-                            key={p.name}
-                            cx={size/2} cy={size/2} r={radius}
-                            fill="none"
-                            stroke={p.color}
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={circumference}
-                            initial={{ strokeDashoffset: circumference }}
-                            animate={{ strokeDashoffset: p.dashOffset }}
-                            transition={{ duration: 0.8, ease: "easeInOut", delay: i * 0.15 }}
-                        />
-                    ))}
-                </AnimatePresence>
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-extrabold text-slate-800">100%</span>
-                <span className="text-sm font-medium text-slate-500">Total</span>
-            </div>
-        </div>
-    );
+  const paths = normalized.map((item, idx) => {
+    const valuePct = (item.value / sum) * 100;
+    const dash = (valuePct / 100) * circumference;
+    const offset = circumference - dash - (normalized.slice(0, idx).reduce((acc, it) => acc + ((it.value / sum) * circumference), 0));
+    return { ...item, dash, offset };
+  }).reverse();
+
+  return (
+    <div className="relative w-36 h-36 mx-auto">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="#eef2f3" strokeWidth={strokeWidth} />
+        <AnimatePresence>
+          {paths.map((p, i) => (
+            <motion.circle key={p.name}
+              cx={size/2} cy={size/2} r={radius}
+              fill="none"
+              stroke={p.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${p.dash} ${circumference - p.dash}`}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: p.offset }}
+              transition={{ duration: 0.9, ease: "easeInOut", delay: i * 0.08 }}
+              strokeLinecap="round"
+            />
+          ))}
+        </AnimatePresence>
+      </svg>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-extrabold text-slate-800">{Math.round((data[0].value + data[1].value + data[2].value) || 100)}%</span>
+        <span className="text-xs text-slate-400">Distribution</span>
+      </div>
+    </div>
+  );
 };
