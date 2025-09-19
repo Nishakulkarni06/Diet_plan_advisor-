@@ -18,8 +18,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/patients" element={<PatientList />} />
         <Route path="/add-patient" element={<PatientForm />} /> 
-         <Route path="/diet-plan/:id" element={<DietPlanPage />} /> 
-          <Route path="/diet-plan" element={<Patient />} />
+         <Route path="/diet-plan" element={<DietPlanPage />} /> 
+          {/* <Route path="/diet-plan" element={<Patient />} /> */}
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
