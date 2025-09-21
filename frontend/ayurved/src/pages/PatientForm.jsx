@@ -598,7 +598,11 @@ export default function PatientForm() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0); // For multi-step form
 
+  // console.log("🔍 PatientForm Debug:", { patientId, location });
+  useEffect(() => {
   console.log("🔍 PatientForm Debug:", { patientId, location });
+}, [patientId, location]);
+
 
   // --- Initial State ---
   const emptyPatient = {
@@ -669,47 +673,51 @@ export default function PatientForm() {
       console.log("✅ Patient data fetched:", res.data);
       if (res.data?.patientInfo) {
         console.log("📥 Backend data structure:", res.data.patientInfo);
+        const pi = res.data.patientInfo;
         const newFormData = {
           ...formData,
           personalInfo: {
             ...formData.personalInfo,
-            ...res.data.patientInfo.personalInfo,
+            ...pi.personalInfo,
             contact: {
               ...formData.personalInfo.contact,
-              ...res.data.patientInfo.personalInfo?.contact,
+              ...pi.personalInfo?.contact,
             },
           },
           vitals: {
             ...formData.vitals,
-            ...res.data.patientInfo.vitals,
+            ...pi.vitals,
           },
           lifestyle: {
             ...formData.lifestyle,
-            ...res.data.patientInfo.lifestyle,
+            ...pi.lifestyle,
           },
           ayurvedaProfile: {
             ...formData.ayurvedaProfile,
-            ...res.data.patientInfo.ayurvedaProfile,
+            ...pi.ayurvedaProfile,
+            tastePref: Array.isArray(pi.ayurvedaProfile?.tastePref) ? pi.ayurvedaProfile.tastePref : [],
+            foodProperties: Array.isArray(pi.ayurvedaProfile?.foodProperties) ? pi.ayurvedaProfile.foodProperties : [],
           },
           medicalInfo: {
             ...formData.medicalInfo,
-            ...(res.data.patientInfo.medicalInfo || {}),
-            labReports: {
-              ...formData.medicalInfo.labReports,
-              ...((res.data.patientInfo.medicalInfo && res.data.patientInfo.medicalInfo.labReports) || {}),
-            },
+            ...(pi.medicalInfo || {}),
+            allergies: Array.isArray(pi.medicalInfo?.allergies) ? pi.medicalInfo.allergies : [],
+            conditions: Array.isArray(pi.medicalInfo?.conditions) ? pi.medicalInfo.conditions : [],
+            medications: Array.isArray(pi.medicalInfo?.medications) ? pi.medicalInfo.medications : [],
           },
           dietaryPreferences: {
             ...formData.dietaryPreferences,
-            ...res.data.patientInfo.dietaryPreferences,
+            ...pi.dietaryPreferences,
+            avoidFoods: Array.isArray(pi.dietaryPreferences?.avoidFoods) ? pi.dietaryPreferences.avoidFoods : [],
+            preferredFoods: Array.isArray(pi.dietaryPreferences?.preferredFoods) ? pi.dietaryPreferences.preferredFoods : [],
           },
           goals: {
             ...formData.goals,
-            ...res.data.patientInfo.goals,
+            ...pi.goals,
           },
           calculated: {
             ...formData.calculated,
-            ...res.data.patientInfo.calculated,
+            ...pi.calculated,
           },
         };
         console.log("📝 Final merged formData:", newFormData);
@@ -836,26 +844,133 @@ export default function PatientForm() {
           : Promise.resolve(a)
       )
     );
-  const handleSubmit = async (e) => {
-    e?.preventDefault?.();
-    try {
-      setLoading(true);
-      let updated = getCalculatedFormData();
-      if (updated.attachments && updated.attachments.length > 0) {
-        updated.attachments = await filesToDataUrls(updated.attachments);
-      } else {
-        updated.attachments = [];
-      }
-      setFormData(updated);
-      await axios.post("http://localhost:3000/generate", updated);
-      navigate("/diet-plan", { state: { patient: updated.personalInfo } });
-    } catch (err) {
-      console.error("Backend error:", err.response?.data || err.message);
-      alert("Error generating diet plan. See console.");
-    } finally {
-      setLoading(false);
+  // const handleSubmit = async (e) => {
+  //   e?.preventDefault?.();
+  //   try {
+  //     setLoading(true);
+  //     let updated = getCalculatedFormData();
+  //     if (updated.attachments && updated.attachments.length > 0) {
+  //       updated.attachments = await filesToDataUrls(updated.attachments);
+  //     } else {
+  //       updated.attachments = [];
+  //     }
+  //     setFormData(updated);
+  //     await axios.post("http://localhost:3000/generate", updated);
+  //     // navigate("/diet-plan", { state: { patient: updated.personalInfo } });
+  //     navigate(`/diet-plan/${patientId}`, { state: { patient: updated.personalInfo } });
+
+  //   } catch (err) {
+  //     console.error("Backend error:", err.response?.data || err.message);
+  //     alert("Error generating diet plan. See console.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+// const handleSubmit = async (e) => {
+//   e?.preventDefault?.();
+//   try {
+//     setLoading(true);
+//     let updated = getCalculatedFormData();
+
+//     if (updated.attachments && updated.attachments.length > 0) {
+//       updated.attachments = await filesToDataUrls(updated.attachments);
+//     } else {
+//       updated.attachments = [];
+//     }
+
+//     setFormData(updated);
+
+//     // POST to backend
+//     const res = await axios.post("http://localhost:3000/generate", updated);
+
+//     const patientId = res.data.id; // ← get the Firestore doc ID
+//     if (!patientId) throw new Error("No patient ID returned from backend");
+
+//     // Redirect to diet plan page with the ID in the URL
+//     navigate(`/diet-plan/${patientId}`);
+
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     alert("Error generating diet plan. See console.");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+// const handleSubmit = async (e) => {
+//   e?.preventDefault?.();
+//   try {
+//     setLoading(true);
+
+//     // Calculate age & BMI
+//     const updatedFormData = JSON.parse(JSON.stringify(formData)); // deep copy
+//     if (updatedFormData.personalInfo.dob) {
+//       const age =
+//         new Date().getFullYear() -
+//         new Date(updatedFormData.personalInfo.dob).getFullYear();
+//       updatedFormData.personalInfo.age = age;
+//       updatedFormData.calculated.age = age;
+//     }
+//     if (updatedFormData.vitals.height_cm && updatedFormData.vitals.weight_kg) {
+//       const h = Number(updatedFormData.vitals.height_cm) / 100;
+//       if (h > 0) {
+//         const bmi = (Number(updatedFormData.vitals.weight_kg) / (h * h)).toFixed(1);
+//         updatedFormData.vitals.bmi = bmi;
+//         updatedFormData.calculated.bmi = bmi;
+//       }
+//     }
+
+//     // Convert attachments if any
+//     if (updatedFormData.attachments?.length > 0) {
+//       updatedFormData.attachments = await filesToDataUrls(updatedFormData.attachments);
+//     }
+
+//     // Set state (preserves everything else)
+//     setFormData(updatedFormData);
+
+//     // Send to backend
+//     const response = await axios.post("http://localhost:3000/generate", updatedFormData);
+
+//     // Navigate with new ID
+//     navigate(`/diet-plan/${response.data.id}`);
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     alert("Error generating diet plan. See console.");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+const handleSubmit = async (e) => {
+  e?.preventDefault?.();
+  try {
+    setLoading(true);
+    let updated = getCalculatedFormData();
+    if (updated.attachments && updated.attachments.length > 0) {
+      updated.attachments = await filesToDataUrls(updated.attachments);
+    } else {
+      updated.attachments = [];
     }
-  };
+    let patientDocId = typeof patientId !== 'undefined' ? patientId : undefined;
+    let res;
+    if (patientDocId) {
+      // Edit mode: update existing plan
+      res = await axios.put(`http://localhost:3000/patient-plan/${patientDocId}`, updated);
+    } else {
+      // New mode: create new plan
+      res = await axios.post("http://localhost:3000/generate", updated);
+      patientDocId = res.data.id;
+    }
+    if (!patientDocId) throw new Error("No patient ID returned from backend");
+    navigate(`/diet-plan/${patientDocId}`);
+  } catch (err) {
+    console.error("Backend error:", err.response?.data || err.message);
+    alert("Error generating diet plan. See console.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // --- UI primitives (fixed controlled inputs) ---
   const Input = ({
@@ -1228,7 +1343,7 @@ export default function PatientForm() {
                         placeholder="e.g., Prevent diabetes"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">
                         Attachments (Lab Reports, etc.)
                       </label>
@@ -1240,7 +1355,7 @@ export default function PatientForm() {
                         }
                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                       />
-                    </div>
+                    </div> */}
                   </div>
                 )}
               </motion.div>
