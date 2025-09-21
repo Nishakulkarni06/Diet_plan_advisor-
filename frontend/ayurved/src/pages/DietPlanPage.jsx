@@ -2,7 +2,13 @@
 // import React, { useEffect, useState } from "react";
 // import { Link, useLocation } from "react-router-dom";
 // import axios from "axios";
-// import jsPDF from "jspdf";
+// import jsPD// src/pages/DietPlanPage.jsx
+import React, { useEffect, useState, useMemo } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import axios from "axios";
+import jsPDF from "jspdf";
+import { motion, AnimatePresence } from "framer-motion";
+("jspdf");
 
 // export default function DietPlanPage() {
 //   const location = useLocation();
@@ -183,29 +189,41 @@
 //   );
 // }
 
-
-
-// src/pages/DietPlanPage.jsx
-import React, { useEffect, useState, useMemo } from "react";
-import { Link, useLocation } from "react-router-dom";
-import axios from "axios";
-import jsPDF from "jspdf";
-import { motion, AnimatePresence } from "framer-motion";
-
 const Icon = ({ children, className = "h-5 w-5" }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">{children}</svg>
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {children}
+  </svg>
 );
 const BreakfastIcon = () => (
-  <Icon className="h-5 w-5 text-amber-500"><path d="M3 7a1 1 0 011-1h16a1 1 0 110 2H4a1 1 0 01-1-1zm2 4a1 1 0 000 2h14a1 1 0 000-2H5z" /></Icon>
+  <Icon className="h-5 w-5 text-amber-500">
+    <path d="M3 7a1 1 0 011-1h16a1 1 0 110 2H4a1 1 0 01-1-1zm2 4a1 1 0 000 2h14a1 1 0 000-2H5z" />
+  </Icon>
 );
 const LunchIcon = () => (
-  <Icon className="h-5 w-5 text-teal-500"><path d="M12 2a1 1 0 011 1v8h8a1 1 0 110 2h-8v8a1 1 0 11-2 0v-8H3a1 1 0 110-2h8V3a1 1 0 011-1z" /></Icon>
+  <Icon className="h-5 w-5 text-teal-500">
+    <path d="M12 2a1 1 0 011 1v8h8a1 1 0 110 2h-8v8a1 1 0 11-2 0v-8H3a1 1 0 110-2h8V3a1 1 0 011-1z" />
+  </Icon>
 );
 const DinnerIcon = () => (
-  <Icon className="h-5 w-5 text-emerald-500"><path d="M4 6h16v2H4zM4 10h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z" /></Icon>
+  <Icon className="h-5 w-5 text-emerald-500">
+    <path d="M4 6h16v2H4zM4 10h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z" />
+  </Icon>
 );
 const DownloadIcon = () => (
-  <Icon className="h-5 w-5"><path d="M12 3v10m0 0l4-4m-4 4l-4-4M4 19h16" strokeWidth="1.5" stroke="#ffffff" strokeLinecap="round" strokeLinejoin="round" /></Icon>
+  <Icon className="h-5 w-5">
+    <path
+      d="M12 3v10m0 0l4-4m-4 4l-4-4M4 19h16"
+      strokeWidth="1.5"
+      stroke="#ffffff"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Icon>
 );
 
 const defaultFormData = {
@@ -216,21 +234,78 @@ const defaultFormData = {
 
 export default function DietPlanPage() {
   const location = useLocation();
+  const { id: patientId } = useParams(); // Get patient ID from URL params
   const passedFormData = location.state?.formData;
+  const passedPatient = location.state?.patient;
+
+  console.log("🔍 DietPlanPage Debug:", { patientId, passedPatient, location });
 
   const [plan, setPlan] = useState(null);
   const [formData, setFormData] = useState(passedFormData || defaultFormData);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchLatestPlan(); /* eslint-disable-line */ }, []);
+  useEffect(() => {
+    console.log("🔄 useEffect triggered with patientId:", patientId);
+    if (patientId) {
+      fetchPatientPlan(patientId);
+    } else {
+      fetchLatestPlan();
+    }
+  }, [patientId]);
+
+  // Fetch specific patient plan by ID
+  const fetchPatientPlan = async (id) => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`http://localhost:3000/patient-plan/${id}`);
+      const rawMeals =
+        res.data?.recommendedMeals ||
+        res.data?.fullPlan?.weekly_plan ||
+        res.data?.fullPlan?.recommendations ||
+        [];
+      setPlan({ recommendedMeals: normalizeMeals(rawMeals) });
+
+      if (res.data?.patientInfo) {
+        setFormData((prev) => ({
+          ...prev,
+          ...res.data.patientInfo,
+          personalInfo: {
+            ...prev.personalInfo,
+            ...(res.data.patientInfo.personalInfo ||
+              res.data.patientInfo.patient),
+          },
+          vitals: { ...prev.vitals, ...res.data.patientInfo.vitals },
+          calculated: {
+            ...prev.calculated,
+            ...res.data.patientInfo.calculated,
+          },
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching patient plan:", err);
+      // Fallback to latest plan
+      fetchLatestPlan();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const normalizeMeals = (rawMeals) => {
     if (!rawMeals || rawMeals.length === 0) return [];
     return rawMeals.map((day, i) => ({
       day: day.day || day.Day || i + 1,
-      breakfast: day.breakfast || day.meals?.breakfast?.items?.map((it) => it.Dish_Name).join(", ") || "",
-      lunch: day.lunch || day.meals?.lunch?.items?.map((it) => it.Dish_Name).join(", ") || "",
-      dinner: day.dinner || day.meals?.dinner?.items?.map((it) => it.Dish_Name).join(", ") || "",
+      breakfast:
+        day.breakfast ||
+        day.meals?.breakfast?.items?.map((it) => it.Dish_Name).join(", ") ||
+        "",
+      lunch:
+        day.lunch ||
+        day.meals?.lunch?.items?.map((it) => it.Dish_Name).join(", ") ||
+        "",
+      dinner:
+        day.dinner ||
+        day.meals?.dinner?.items?.map((it) => it.Dish_Name).join(", ") ||
+        "",
     }));
   };
 
@@ -238,16 +313,26 @@ export default function DietPlanPage() {
     setLoading(true);
     try {
       const res = await axios.get("http://localhost:3000/fetch-latest-plan");
-      const rawMeals = res.data?.recommendedMeals || res.data?.fullPlan?.weekly_plan || res.data?.fullPlan?.recommendations || [];
+      const rawMeals =
+        res.data?.recommendedMeals ||
+        res.data?.fullPlan?.weekly_plan ||
+        res.data?.fullPlan?.recommendations ||
+        [];
       setPlan({ recommendedMeals: normalizeMeals(rawMeals) });
 
       if (res.data?.patientInfo) {
         setFormData((prev) => ({
           ...prev,
           ...res.data.patientInfo,
-          personalInfo: { ...prev.personalInfo, ...res.data.patientInfo.personalInfo },
+          personalInfo: {
+            ...prev.personalInfo,
+            ...res.data.patientInfo.personalInfo,
+          },
           vitals: { ...prev.vitals, ...res.data.patientInfo.vitals },
-          calculated: { ...prev.calculated, ...res.data.patientInfo.calculated },
+          calculated: {
+            ...prev.calculated,
+            ...res.data.patientInfo.calculated,
+          },
         }));
       }
     } catch (err) {
@@ -277,7 +362,11 @@ export default function DietPlanPage() {
       doc.text("Ayurvedic Diet Plan", margin, 48);
       doc.setFontSize(11);
       doc.setTextColor(16, 185, 129);
-      doc.text(`For: ${formData.personalInfo.fullName || "Patient"}`, margin, 66);
+      doc.text(
+        `For: ${formData.personalInfo.fullName || "Patient"}`,
+        margin,
+        66
+      );
     };
 
     const addFooter = () => {
@@ -285,7 +374,11 @@ export default function DietPlanPage() {
       doc.rect(0, pageHeight - 50, pageWidth, 50, "F");
       doc.setFontSize(9);
       doc.setTextColor(90, 120, 100);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, pageHeight - 28);
+      doc.text(
+        `Generated: ${new Date().toLocaleDateString()}`,
+        margin,
+        pageHeight - 28
+      );
     };
 
     addHeader();
@@ -311,20 +404,27 @@ export default function DietPlanPage() {
       doc.setFontSize(10);
       doc.setTextColor(40, 60, 50);
 
-      const mealText = `Breakfast: ${day.breakfast || "-"}\n\nLunch: ${day.lunch || "-"}\n\nDinner: ${day.dinner || "-"}`;
+      const mealText = `Breakfast: ${day.breakfast || "-"}\n\nLunch: ${
+        day.lunch || "-"
+      }\n\nDinner: ${day.dinner || "-"}`;
       const lines = doc.splitTextToSize(mealText, contentWidth);
       doc.text(lines, rightCol, y);
       y += lines.length * 12 + 16;
     });
 
     addFooter();
-    const safeName = (formData.personalInfo.fullName || "Patient").replace(/\s+/g, "_");
+    const safeName = (formData.personalInfo.fullName || "Patient").replace(
+      /\s+/g,
+      "_"
+    );
     doc.save(`DietPlan_${safeName}.pdf`);
   };
 
   const mealLengths = useMemo(() => {
     if (!plan?.recommendedMeals) return { b: 0, l: 0, d: 0 };
-    let b = 0, l = 0, d = 0;
+    let b = 0,
+      l = 0,
+      d = 0;
     plan.recommendedMeals.forEach((m) => {
       b += (m.breakfast || "").length;
       l += (m.lunch || "").length;
@@ -341,9 +441,13 @@ export default function DietPlanPage() {
         <aside className="col-span-12 lg:col-span-3">
           <div className="bg-white rounded-2xl p-5 shadow-xl border border-slate-100 sticky top-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">DR</div>
+              <div className="h-10 w-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
+                DR
+              </div>
               <div>
-                <div className="text-sm font-semibold text-emerald-900">Ayurvedic Diet Admin</div>
+                <div className="text-sm font-semibold text-emerald-900">
+                  Ayurvedic Diet Admin
+                </div>
                 <div className="text-xs text-slate-400">Doctor Dashboard</div>
               </div>
             </div>
@@ -355,39 +459,102 @@ export default function DietPlanPage() {
         <main className="col-span-12 lg:col-span-6">
           <header className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-emerald-900">Your Diet Plan</h1>
-              <p className="text-sm text-slate-500 mt-1">A 7-day holistic meal plan for <span className="font-semibold text-emerald-700">{formData.personalInfo.fullName}</span></p>
+              <h1 className="text-3xl font-extrabold text-emerald-900">
+                Your Diet Plan
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                A 7-day holistic meal plan for{" "}
+                <span className="font-semibold text-emerald-700">
+                  {formData.personalInfo.fullName}
+                </span>
+              </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <motion.button whileTap={{ scale: 0.97 }} onClick={generatePDF} className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={generatePDF}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition"
+              >
                 <DownloadIcon />
                 <span>Download PDF</span>
               </motion.button>
-              <Link to="/" className="px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50 transition" title="Edit Form">✏️</Link>
+              <Link
+                to={patientId ? `/edit/${patientId}` : "/"}
+                state={{ formData, patient: passedPatient }}
+                className="px-3 py-2 bg-white border rounded-lg shadow-sm hover:bg-slate-50 transition"
+                title="Edit Form"
+                onClick={() =>
+                  console.log("🔗 Edit button clicked:", {
+                    patientId,
+                    editUrl: patientId ? `/edit/${patientId}` : "/",
+                  })
+                }
+              >
+                ✏️
+              </Link>
             </div>
           </header>
 
           <section className="space-y-4">
             <AnimatePresence>
               {loading ? (
-                <div className="p-8 text-center text-slate-500 bg-white rounded-2xl shadow">Loading your plan...</div>
+                <div className="p-8 text-center text-slate-500 bg-white rounded-2xl shadow">
+                  Loading your plan...
+                </div>
               ) : plan?.recommendedMeals?.length > 0 ? (
                 plan.recommendedMeals.map((day, i) => (
-                  <motion.article key={day.day} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="bg-white p-5 rounded-2xl shadow border border-slate-100">
+                  <motion.article
+                    key={day.day}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="bg-white p-5 rounded-2xl shadow border border-slate-100"
+                  >
                     <div className="flex items-start justify-between">
-                      <h3 className="text-lg font-bold text-emerald-700">Day {day.day}</h3>
+                      <h3 className="text-lg font-bold text-emerald-700">
+                        Day {day.day}
+                      </h3>
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-3">
-                      <div className="flex items-start gap-3"><BreakfastIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Breakfast:</span> {day.breakfast || '—'}</p></div>
-                      <div className="flex items-start gap-3"><LunchIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Lunch:</span> {day.lunch || '—'}</p></div>
-                      <div className="flex items-start gap-3"><DinnerIcon /><p className="text-sm"><span className="font-semibold text-slate-700">Dinner:</span> {day.dinner || '—'}</p></div>
+                      <div className="flex items-start gap-3">
+                        <BreakfastIcon />
+                        <p className="text-sm">
+                          <span className="font-semibold text-slate-700">
+                            Breakfast:
+                          </span>{" "}
+                          {day.breakfast || "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <LunchIcon />
+                        <p className="text-sm">
+                          <span className="font-semibold text-slate-700">
+                            Lunch:
+                          </span>{" "}
+                          {day.lunch || "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <DinnerIcon />
+                        <p className="text-sm">
+                          <span className="font-semibold text-slate-700">
+                            Dinner:
+                          </span>{" "}
+                          {day.dinner || "—"}
+                        </p>
+                      </div>
                     </div>
                   </motion.article>
                 ))
               ) : (
-                <div className="p-8 text-center bg-white rounded-2xl shadow">Could not find a diet plan. <Link to="/" className="text-emerald-600 font-semibold">Create a new one.</Link></div>
+                <div className="p-8 text-center bg-white rounded-2xl shadow">
+                  Could not find a diet plan.{" "}
+                  <Link to="/" className="text-emerald-600 font-semibold">
+                    Create a new one.
+                  </Link>
+                </div>
               )}
             </AnimatePresence>
           </section>
@@ -408,32 +575,67 @@ export default function DietPlanPage() {
 
 const SummaryCard = ({ patient, mealDistribution }) => {
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.12 }}
+      className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden"
+    >
       <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-center">
         <h3 className="text-lg font-bold">Plan Summary</h3>
         <p className="text-xs text-emerald-100 mt-1">Meal Distribution</p>
       </div>
       <div className="p-6 space-y-4">
-        <DonutChart data={[
-          { name: 'Breakfast', value: mealDistribution.b, color: '#f59e0b' },
-          { name: 'Lunch', value: mealDistribution.l, color: '#14b8a6' },
-          { name: 'Dinner', value: mealDistribution.d, color: '#10b981' }
-        ]} />
+        <DonutChart
+          data={[
+            { name: "Breakfast", value: mealDistribution.b, color: "#f59e0b" },
+            { name: "Lunch", value: mealDistribution.l, color: "#14b8a6" },
+            { name: "Dinner", value: mealDistribution.d, color: "#10b981" },
+          ]}
+        />
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" />Breakfast</span><span className="font-semibold">{Math.round(mealDistribution.b)}%</span></div>
-          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-teal-500" />Lunch</span><span className="font-semibold">{Math.round(mealDistribution.l)}%</span></div>
-          <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" />Dinner</span><span className="font-semibold">{Math.round(mealDistribution.d)}%</span></div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              Breakfast
+            </span>
+            <span className="font-semibold">
+              {Math.round(mealDistribution.b)}%
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-teal-500" />
+              Lunch
+            </span>
+            <span className="font-semibold">
+              {Math.round(mealDistribution.l)}%
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              Dinner
+            </span>
+            <span className="font-semibold">
+              {Math.round(mealDistribution.d)}%
+            </span>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-slate-100 grid grid-cols-2 text-center">
           <div>
             <div className="text-xs text-slate-400">Age</div>
-            <div className="text-lg font-bold text-slate-800">{patient.calculated?.age || patient.personalInfo?.age || '-'}</div>
+            <div className="text-lg font-bold text-slate-800">
+              {patient.calculated?.age || patient.personalInfo?.age || "-"}
+            </div>
           </div>
           <div>
             <div className="text-xs text-slate-400">BMI</div>
-            <div className="text-lg font-bold text-slate-800">{patient.calculated?.bmi || patient.vitals?.bmi || '-'}</div>
+            <div className="text-lg font-bold text-slate-800">
+              {patient.calculated?.bmi || patient.vitals?.bmi || "-"}
+            </div>
           </div>
         </div>
       </div>
@@ -447,24 +649,49 @@ const DonutChart = ({ data }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const normalized = data.map(item => ({ ...item, value: Math.max(0, item.value || 0) }));
+  const normalized = data.map((item) => ({
+    ...item,
+    value: Math.max(0, item.value || 0),
+  }));
   const sum = normalized.reduce((s, it) => s + it.value, 0) || 1;
 
-  const paths = normalized.map((item, idx) => {
-    const valuePct = (item.value / sum) * 100;
-    const dash = (valuePct / 100) * circumference;
-    const offset = circumference - dash - (normalized.slice(0, idx).reduce((acc, it) => acc + ((it.value / sum) * circumference), 0));
-    return { ...item, dash, offset };
-  }).reverse();
+  const paths = normalized
+    .map((item, idx) => {
+      const valuePct = (item.value / sum) * 100;
+      const dash = (valuePct / 100) * circumference;
+      const offset =
+        circumference -
+        dash -
+        normalized
+          .slice(0, idx)
+          .reduce((acc, it) => acc + (it.value / sum) * circumference, 0);
+      return { ...item, dash, offset };
+    })
+    .reverse();
 
   return (
     <div className="relative w-36 h-36 mx-auto">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="#eef2f3" strokeWidth={strokeWidth} />
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#eef2f3"
+          strokeWidth={strokeWidth}
+        />
         <AnimatePresence>
           {paths.map((p, i) => (
-            <motion.circle key={p.name}
-              cx={size/2} cy={size/2} r={radius}
+            <motion.circle
+              key={p.name}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
               fill="none"
               stroke={p.color}
               strokeWidth={strokeWidth}
@@ -479,7 +706,9 @@ const DonutChart = ({ data }) => {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-extrabold text-slate-800">{Math.round((data[0].value + data[1].value + data[2].value) || 100)}%</span>
+        <span className="text-2xl font-extrabold text-slate-800">
+          {Math.round(data[0].value + data[1].value + data[2].value || 100)}%
+        </span>
         <span className="text-xs text-slate-400">Distribution</span>
       </div>
     </div>

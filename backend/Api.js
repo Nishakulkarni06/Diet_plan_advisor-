@@ -1,61 +1,59 @@
-  // import express from "express";
-  // import multer from "multer";
-  // import cors from "cors";
-  // import axios from "axios";
-  // import csv from "csvtojson"; // npm install csvtojson
+// import express from "express";
+// import multer from "multer";
+// import cors from "cors";
+// import axios from "axios";
+// import csv from "csvtojson"; // npm install csvtojson
 
-  // const app = express();
-  // app.use(cors());
+// const app = express();
+// app.use(cors());
 
-  // const upload = multer();
+// const upload = multer();
 
-  // app.post(
-  //   "/generate",
-  //   upload.fields([{ name: "patientData" }, { name: "foodData" }]),
-  //   async (req, res) => {
-  //     try {
-  //       if (!req.files?.patientData || !req.files?.foodData) {
-  //         return res.status(400).json({ error: "Both files are required" });
-  //       }
+// app.post(
+//   "/generate",
+//   upload.fields([{ name: "patientData" }, { name: "foodData" }]),
+//   async (req, res) => {
+//     try {
+//       if (!req.files?.patientData || !req.files?.foodData) {
+//         return res.status(400).json({ error: "Both files are required" });
+//       }
 
-  //       // Parse patient JSON
-  //       const patientJson = JSON.parse(req.files.patientData[0].buffer.toString("utf-8"));
+//       // Parse patient JSON
+//       const patientJson = JSON.parse(req.files.patientData[0].buffer.toString("utf-8"));
 
-  //       // Convert CSV to JSON
-  //       const foodCsvBuffer = req.files.foodData[0].buffer.toString("utf-8");
-  //       const foodJson = await csv().fromString(foodCsvBuffer);
+//       // Convert CSV to JSON
+//       const foodCsvBuffer = req.files.foodData[0].buffer.toString("utf-8");
+//       const foodJson = await csv().fromString(foodCsvBuffer);
 
-  //       // Combine both
-  //       const combinedData = {
-  //         ...patientJson,
-  //         foodData: foodJson,
-  //       };
+//       // Combine both
+//       const combinedData = {
+//         ...patientJson,
+//         foodData: foodJson,
+//       };
 
-  //       // Send combined JSON to API
-  //       const response = await axios.post(
-  //         "https://fourdietapi-1.onrender.com/generate_plan",
-  //         combinedData,
-  //         {
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //             "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
-  //           },
-  //         }
-  //       );
+//       // Send combined JSON to API
+//       const response = await axios.post(
+//         "https://fourdietapi-1.onrender.com/generate_plan",
+//         combinedData,
+//         {
+//           headers: {
+//             "Content-Type": "application/json",
+//             "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+//           },
+//         }
+//       );
 
-  //       // Forward API response to frontend
-  //       res.json(response.data);
+//       // Forward API response to frontend
+//       res.json(response.data);
 
-  //     } catch (err) {
-  //       console.error("Backend error:", err.response?.data || err.message);
-  //       res.status(500).json({ error: "Failed to generate plan" });
-  //     }
-  //   }
-  // );
+//     } catch (err) {
+//       console.error("Backend error:", err.response?.data || err.message);
+//       res.status(500).json({ error: "Failed to generate plan" });
+//     }
+//   }
+// );
 
-  // app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
-
-
+// app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
 
 // backend/index.js
 // backend/index.js
@@ -145,10 +143,6 @@
 // });
 
 // app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
-
-
-
-
 
 // import express from "express";
 // import cors from "cors";
@@ -252,9 +246,144 @@
 
 // app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
 
+// import express from "express";
+// import cors from "cors";
+// import admin from "firebase-admin";
+// import axios from "axios";
+// import fs from "fs";
+
+// const app = express();
+// app.use(cors());
+// app.use(express.json());
+
+// // Initialize Firebase Admin
+// const serviceAccount = JSON.parse(
+//   fs.readFileSync("./serviceAccountKey.json", "utf8")
+// );
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
+
+// const db = admin.firestore();
+
+// // --- Generate Diet Plan & Save to Firestore ---
+// app.post("/generate", async (req, res) => {
+//   try {
+//     const patientData = req.body;
+//     if (!patientData)
+//       return res.status(400).json({ error: "Patient data required" });
+
+//     // Fetch food items
+//     const snapshot = await db.collection("foodItems").get();
+//     const foodData = snapshot.docs.map((doc) => doc.data());
+
+//     // Combine patient + food data
+//     const combinedData = { ...patientData, foodData };
+
+//     // Call external diet API
+//     const response = await axios.post(
+//       "https://fourdietapi-1.onrender.com/generate_plan",
+//       combinedData,
+//       {
+//         headers: {
+//           "Content-Type": "application/json",
+//           "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+//         },
+//         timeout: 60000,
+//       }
+//     );
+
+//     const dietPlan = response.data;
+
+//     // --- Ensure recommendedMeals exists ---
+//     let recommendedMeals = dietPlan.recommendedMeals;
+//     if (!recommendedMeals || recommendedMeals.length === 0) {
+//       recommendedMeals = dietPlan.weekly_plan || dietPlan.recommendations || [];
+//     }
+
+//     // --- Save to Firestore ---
+//     await db.collection("dietPlans").add({
+//       patient: patientData.personalInfo,
+//       vitals: patientData.vitals,
+//       lifestyle: patientData.lifestyle,
+//       ayurvedaProfile: patientData.ayurvedaProfile,
+//       dietaryPreferences: patientData.dietaryPreferences,
+//       goals: patientData.goals,
+//       dietPlan,
+//       recommendedMeals, // Save normalized array
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     });
+
+//     // Return consistent structure to frontend
+//     return res.json({
+//       recommendedMeals,
+//       fullPlan: dietPlan,
+//     });
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Failed to generate and save plan" });
+//   }
+// });
+
+// // --- Fetch latest saved diet plan ---
+// app.get("/fetch-latest-plan", async (req, res) => {
+//   try {
+//     const snapshot = await db
+//       .collection("dietPlans")
+//       .orderBy("createdAt", "desc")
+//       .limit(1)
+//       .get();
+
+//     if (snapshot.empty) return res.json({ recommendedMeals: [] });
+
+//     const doc = snapshot.docs[0].data();
+
+//     res.json({
+//       recommendedMeals: doc.recommendedMeals || [],
+//       fullPlan: doc.dietPlan || {},
+//     });
+//   } catch (err) {
+//     console.error("Fetch latest plan error:", err);
+//     res.status(500).json({ error: "Failed to fetch latest plan" });
+//   }
+// });
+
+// // --- Fetch specific patient plan by ID ---
+// app.get("/patient-plan/:id", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const doc = await db.collection("dietPlans").doc(id).get();
+//     console.log("Looking for plan:", id);
 
 
+//     if (!doc.exists) {
+//       return res.status(404).json({ error: "Patient plan not found" });
+//     }
 
+//     const data = doc.data();
+//     res.json({
+//       recommendedMeals: data.recommendedMeals || [],
+//       fullPlan: data.dietPlan || {},
+//       patientInfo: {
+//         personalInfo: data.patient || {},
+//         vitals: data.vitals || {},
+//         lifestyle: data.lifestyle || {},
+//         ayurvedaProfile: data.ayurvedaProfile || {},
+//         dietaryPreferences: data.dietaryPreferences || {},
+//         goals: data.goals || {},
+//         calculated: data.calculated || {},
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Fetch patient plan error:", err);
+//     res.status(500).json({ error: "Failed to fetch patient plan" });
+//   }
+// });
+
+// app.listen(3000, () =>
+//   console.log("✅ Backend running on http://localhost:3000")
+// );
 
 
 import express from "express";
@@ -267,8 +396,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase Admin
-const serviceAccount = JSON.parse(fs.readFileSync("./serviceAccountKey.json", "utf8"));
+// --- Initialize Firebase Admin ---
+const serviceAccount = JSON.parse(
+  fs.readFileSync("./serviceAccountKey.json", "utf8")
+);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -280,11 +411,13 @@ const db = admin.firestore();
 app.post("/generate", async (req, res) => {
   try {
     const patientData = req.body;
-    if (!patientData) return res.status(400).json({ error: "Patient data required" });
+    if (!patientData) {
+      return res.status(400).json({ error: "Patient data required" });
+    }
 
-    // Fetch food items
+    // Fetch food items from Firestore
     const snapshot = await db.collection("foodItems").get();
-    const foodData = snapshot.docs.map(doc => doc.data());
+    const foodData = snapshot.docs.map((doc) => doc.data());
 
     // Combine patient + food data
     const combinedData = { ...patientData, foodData };
@@ -304,14 +437,14 @@ app.post("/generate", async (req, res) => {
 
     const dietPlan = response.data;
 
-    // --- Ensure recommendedMeals exists ---
+    // Ensure recommendedMeals exists
     let recommendedMeals = dietPlan.recommendedMeals;
     if (!recommendedMeals || recommendedMeals.length === 0) {
       recommendedMeals = dietPlan.weekly_plan || dietPlan.recommendations || [];
     }
 
     // --- Save to Firestore ---
-    await db.collection("dietPlans").add({
+    const docRef = await db.collection("dietPlans").add({
       patient: patientData.personalInfo,
       vitals: patientData.vitals,
       lifestyle: patientData.lifestyle,
@@ -323,12 +456,12 @@ app.post("/generate", async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Return consistent structure to frontend
+    // Return consistent structure + document ID
     return res.json({
+      id: docRef.id, // 🔥 new: return Firestore doc ID
       recommendedMeals,
       fullPlan: dietPlan,
     });
-
   } catch (err) {
     console.error("Backend error:", err.response?.data || err.message);
     res.status(500).json({ error: "Failed to generate and save plan" });
@@ -338,26 +471,60 @@ app.post("/generate", async (req, res) => {
 // --- Fetch latest saved diet plan ---
 app.get("/fetch-latest-plan", async (req, res) => {
   try {
-    const snapshot = await db.collection("dietPlans")
+    const snapshot = await db
+      .collection("dietPlans")
       .orderBy("createdAt", "desc")
       .limit(1)
       .get();
 
     if (snapshot.empty) return res.json({ recommendedMeals: [] });
 
-    const doc = snapshot.docs[0].data();
+    const doc = snapshot.docs[0];
+    const data = doc.data();
 
     res.json({
-      recommendedMeals: doc.recommendedMeals || [],
-      fullPlan: doc.dietPlan || {},
+      id: doc.id, // 🔥 return the ID too
+      recommendedMeals: data.recommendedMeals || [],
+      fullPlan: data.dietPlan || {},
     });
-
   } catch (err) {
     console.error("Fetch latest plan error:", err);
     res.status(500).json({ error: "Failed to fetch latest plan" });
   }
 });
 
-app.listen(3000, () => console.log("✅ Backend running on http://localhost:3000"));
+// --- Fetch specific patient plan by ID ---
+app.get("/patient-plan/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await db.collection("dietPlans").doc(id).get();
+    console.log("Looking for plan:", id);
 
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Patient plan not found" });
+    }
 
+    const data = doc.data();
+    res.json({
+      id: doc.id,
+      recommendedMeals: data.recommendedMeals || [],
+      fullPlan: data.dietPlan || {},
+      patientInfo: {
+        personalInfo: data.patient || {},
+        vitals: data.vitals || {},
+        lifestyle: data.lifestyle || {},
+        ayurvedaProfile: data.ayurvedaProfile || {},
+        dietaryPreferences: data.dietaryPreferences || {},
+        goals: data.goals || {},
+        calculated: data.calculated || {},
+      },
+    });
+  } catch (err) {
+    console.error("Fetch patient plan error:", err);
+    res.status(500).json({ error: "Failed to fetch patient plan" });
+  }
+});
+
+app.listen(3000, () =>
+  console.log("✅ Backend running on http://localhost:3000")
+);
