@@ -522,406 +522,920 @@
 //   );
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // src/components/PatientForm.jsx
 // Updated: Mint/emerald theme, bug fixes for controlled inputs, improved spacing & readability.
 // Add this to index.html <head> if you want the same typography:
 // <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 // And in tailwind.config.js: theme.extend.fontFamily.sans = ['Inter', 'ui-sans-serif', 'system-ui']
 
-import React, { useState, useMemo } from "react"; // CORRECTED THIS LINE
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 
 // --- Helper Icon Components (kept simple) ---
 const UserIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fillRule="evenodd"
+      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+      clipRule="evenodd"
+    />
+  </svg>
 );
 const HeartIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fillRule="evenodd"
+      d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+      clipRule="evenodd"
+    />
+  </svg>
 );
 const LeafIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 4.707a1 1 0 00-1.414-1.414L10 9.586 6.707 6.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8z" clipRule="evenodd" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      d="M17.293 4.707a1 1 0 00-1.414-1.414L10 9.586 6.707 6.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8z"
+      clipRule="evenodd"
+    />
+  </svg>
 );
 const ClipboardIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+    <path
+      fillRule="evenodd"
+      d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+      clipRule="evenodd"
+    />
+  </svg>
 );
 
 export default function PatientForm() {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const [step, setStep] = useState(0); // For multi-step form
+  const navigate = useNavigate();
+  const { id: patientId } = useParams(); // Get patient ID from URL for editing
+  const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0); // For multi-step form
 
-    // --- Initial State ---
-    const emptyPatient = {
-        personalInfo: { fullName: "", dob: "", gender: "", age: "", contact: { phone: "", email: "" } },
-        vitals: { height_cm: "", weight_kg: "", bmi: "", bp: "", pulseRate: "", respirationRate: "", temperature: "" },
-        ayurvedaProfile: { prakriti: "", doshaImbalance: "", agni: "", tastePref: [], foodProperties: [], season: "" },
-        lifestyle: { dietType: "", mealFreq: "", waterIntake_l: "", bowel: "", sleepPattern: "", physicalActivity: "", stressLevel: "" },
-        medicalInfo: { allergies: [], conditions: [], medications: [], labReports: { bloodSugarFasting: "", cholesterol: "", hb: "" } },
-        dietaryPreferences: { avoidFoods: [], preferredFoods: [], restrictedByReligion: "No" },
-        goals: { shortTerm: "", longTerm: "" },
-        attachments: [],
-        calculated: { age: "", bmi: "" },
-    };
-    const [formData, setFormData] = useState(emptyPatient);
+  console.log("🔍 PatientForm Debug:", { patientId, location });
 
-    // --- Options ---
-    const genderOptions = ["Male", "Female", "Other"];
-    const prakritiOptions = ["Vata", "Pitta", "Kapha", "Vata-Pitta", "Pitta-Kapha", "Vata-Kapha"];
-    const doshaOptions = ["Vata", "Pitta", "Kapha"];
-    const agniOptions = ["Manda", "Madhyam", "Tikshna"];
-    const seasonOptions = ["Spring", "Summer", "Monsoon", "Autumn", "Winter"];
-    const dietTypeOptions = ["Vegetarian", "Vegan", "Eggetarian", "Pescatarian", "Non-Vegetarian"];
-    const bowelOptions = ["Constipated", "Normal", "Loose"];
-    const physicalActivityOptions = ["Sedentary", "Light", "Moderate", "Active"];
-    const commonFoods = ["moong dal", "ghee", "pomegranate", "leafy greens", "rice", "dal", "roti", "curd", "banana"];
-    const commonAllergies = ["None", "Peanuts", "Dairy", "Gluten", "Seafood"];
-    const commonConditions = ["Hypertension", "Diabetes", "Thyroid", "PCOS", "Asthma"];
+  // --- Initial State ---
+  const emptyPatient = {
+    personalInfo: {
+      fullName: "",
+      dob: "",
+      gender: "",
+      age: "",
+      contact: { phone: "", email: "" },
+    },
+    vitals: {
+      height_cm: "",
+      weight_kg: "",
+      bmi: "",
+      bp: "",
+      pulseRate: "",
+      respirationRate: "",
+      temperature: "",
+    },
+    ayurvedaProfile: {
+      prakriti: "",
+      doshaImbalance: "",
+      agni: "",
+      tastePref: [],
+      foodProperties: [],
+      season: "",
+    },
+    lifestyle: {
+      dietType: "",
+      mealFreq: "",
+      waterIntake_l: "",
+      bowel: "",
+      sleepPattern: "",
+      physicalActivity: "",
+      stressLevel: "",
+    },
+    medicalInfo: {
+      allergies: [],
+      conditions: [],
+      medications: [],
+      labReports: { bloodSugarFasting: "", cholesterol: "", hb: "" },
+    },
+    dietaryPreferences: {
+      avoidFoods: [],
+      preferredFoods: [],
+      restrictedByReligion: "No",
+    },
+    goals: { shortTerm: "", longTerm: "" },
+    attachments: [],
+    calculated: { age: "", bmi: "" },
+  };
+  const [formData, setFormData] = useState(
+    location.state?.formData || emptyPatient
+  );
 
-    // --- State Updaters (robust & safe) ---
-    const updateNested = (section, key, value) => {
-        setFormData((prev) => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
-    };
-    const updateDeep = (path, value) => {
-        setFormData((prev) => {
-            const copy = JSON.parse(JSON.stringify(prev));
-            let cur = copy;
-            for (let i = 0; i < path.length - 1; i++) {
-                if (cur[path[i]] === undefined) cur[path[i]] = {};
-                cur = cur[path[i]];
-            }
-            cur[path[path.length - 1]] = value;
-            return copy;
-        });
-    };
-    const addToArray = (section, key, value) => {
-        if (!value || value.toString().trim() === "") return;
-        setFormData((prev) => ({ ...prev, [section]: { ...prev[section], [key]: [...(prev[section][key] || []), value] } }));
-    };
-    const removeFromArray = (section, key, idx) => {
-        setFormData((prev) => {
-            const arr = [...(prev[section][key] || [])].filter((_, i) => i !== idx);
-            return { ...prev, [section]: { ...prev[section], [key]: arr } };
-        });
-    };
-    const handleAttachmentsChange = (files) => {
-        const arr = Array.from(files || []).map((f) => ({ name: f.name, file: f }));
-        setFormData((prev) => ({ ...prev, attachments: arr }));
-    };
-    const getCalculatedFormData = () => {
-        const updated = JSON.parse(JSON.stringify(formData));
-        if (updated.personalInfo.dob) {
-            updated.personalInfo.age = new Date().getFullYear() - new Date(updated.personalInfo.dob).getFullYear();
-            updated.calculated.age = updated.personalInfo.age;
-        }
-        if (updated.vitals.height_cm && updated.vitals.weight_kg) {
-            const h = Number(updated.vitals.height_cm) / 100;
-            if (h > 0) {
-                updated.vitals.bmi = (Number(updated.vitals.weight_kg) / (h * h)).toFixed(1);
-                updated.calculated.bmi = updated.vitals.bmi;
-            }
-        }
-        return updated;
-    };
-    const filesToDataUrls = (attachments) => Promise.all((attachments || []).map((a) => a.file ? new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({ name: a.name, dataUrl: r.result }); r.onerror = rej; r.readAsDataURL(a.file); }) : Promise.resolve(a)));
-    const handleSubmit = async (e) => {
-        e?.preventDefault?.();
-        try {
-            setLoading(true);
-            let updated = getCalculatedFormData();
-            updated.attachments = await filesToDataUrls(updated.attachments || []);
-            setFormData(updated);
-            await axios.post("http://localhost:3000/generate", updated);
-            navigate("/diet-plan", { state: { patient: updated.personalInfo } });
-        } catch (err) {
-            console.error("Backend error:", err.response?.data || err.message);
-            alert("Error generating diet plan. See console.");
-        } finally {
-            setLoading(false);
-        }
-    };
+  // --- Load existing patient data when editing ---
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientData(patientId);
+    }
+  }, [patientId]);
 
-    // --- UI primitives (fixed controlled inputs) ---
-    const Input = ({ label, value = "", onChange = () => {}, type = "text", placeholder = "", name, id }) => (
-        <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-            <input
-                id={id}
-                name={name}
-                type={type}
-                value={value === undefined || value === null ? "" : value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-            />
-        </div>
+  const fetchPatientData = async (id) => {
+    console.log("🔄 fetchPatientData called with id:", id);
+    try {
+      setLoading(true);
+      const res = await axios.get(`http://localhost:3000/patient-plan/${id}`);
+      console.log("✅ Patient data fetched:", res.data);
+      if (res.data?.patientInfo) {
+        console.log("📥 Backend data structure:", res.data.patientInfo);
+        const newFormData = {
+          ...formData,
+          personalInfo: {
+            ...formData.personalInfo,
+            ...res.data.patientInfo.personalInfo,
+            contact: {
+              ...formData.personalInfo.contact,
+              ...res.data.patientInfo.personalInfo?.contact,
+            },
+          },
+          vitals: {
+            ...formData.vitals,
+            ...res.data.patientInfo.vitals,
+          },
+          lifestyle: {
+            ...formData.lifestyle,
+            ...res.data.patientInfo.lifestyle,
+          },
+          ayurvedaProfile: {
+            ...formData.ayurvedaProfile,
+            ...res.data.patientInfo.ayurvedaProfile,
+          },
+          medicalInfo: {
+            ...formData.medicalInfo,
+            ...(res.data.patientInfo.medicalInfo || {}),
+            labReports: {
+              ...formData.medicalInfo.labReports,
+              ...((res.data.patientInfo.medicalInfo && res.data.patientInfo.medicalInfo.labReports) || {}),
+            },
+          },
+          dietaryPreferences: {
+            ...formData.dietaryPreferences,
+            ...res.data.patientInfo.dietaryPreferences,
+          },
+          goals: {
+            ...formData.goals,
+            ...res.data.patientInfo.goals,
+          },
+          calculated: {
+            ...formData.calculated,
+            ...res.data.patientInfo.calculated,
+          },
+        };
+        console.log("📝 Final merged formData:", newFormData);
+        setFormData(newFormData);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching patient data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Options ---
+  const genderOptions = ["Male", "Female", "Other"];
+  const prakritiOptions = [
+    "Vata",
+    "Pitta",
+    "Kapha",
+    "Vata-Pitta",
+    "Pitta-Kapha",
+    "Vata-Kapha",
+  ];
+  const doshaOptions = ["Vata", "Pitta", "Kapha"];
+  const agniOptions = ["Manda", "Madhyam", "Tikshna"];
+  const seasonOptions = ["Spring", "Summer", "Monsoon", "Autumn", "Winter"];
+  const dietTypeOptions = [
+    "Vegetarian",
+    "Vegan",
+    "Eggetarian",
+    "Pescatarian",
+    "Non-Vegetarian",
+  ];
+  const bowelOptions = ["Constipated", "Normal", "Loose"];
+  const physicalActivityOptions = ["Sedentary", "Light", "Moderate", "Active"];
+  const commonFoods = [
+    "moong dal",
+    "ghee",
+    "pomegranate",
+    "leafy greens",
+    "rice",
+    "dal",
+    "roti",
+    "curd",
+    "banana",
+  ];
+  const commonAllergies = ["None", "Peanuts", "Dairy", "Gluten", "Seafood"];
+  const commonConditions = [
+    "Hypertension",
+    "Diabetes",
+    "Thyroid",
+    "PCOS",
+    "Asthma",
+  ];
+
+  // --- State Updaters (robust & safe) ---
+  const updateNested = (section, key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], [key]: value },
+    }));
+  };
+  const updateDeep = (path, value) => {
+    setFormData((prev) => {
+      const copy = JSON.parse(JSON.stringify(prev));
+      let cur = copy;
+      for (let i = 0; i < path.length - 1; i++) {
+        if (cur[path[i]] === undefined) cur[path[i]] = {};
+        cur = cur[path[i]];
+      }
+      cur[path[path.length - 1]] = value;
+      return copy;
+    });
+  };
+  const addToArray = (section, key, value) => {
+    if (!value || value.toString().trim() === "") return;
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: [...(prev[section][key] || []), value],
+      },
+    }));
+  };
+  const removeFromArray = (section, key, idx) => {
+    setFormData((prev) => {
+      const arr = [...(prev[section][key] || [])].filter((_, i) => i !== idx);
+      return { ...prev, [section]: { ...prev[section], [key]: arr } };
+    });
+  };
+  const handleAttachmentsChange = (files) => {
+    const arr = Array.from(files || []).map((f) => ({ name: f.name, file: f }));
+    setFormData((prev) => ({ ...prev, attachments: arr }));
+  };
+  const getCalculatedFormData = () => {
+    const updated = JSON.parse(JSON.stringify(formData));
+    if (updated.personalInfo.dob) {
+      updated.personalInfo.age =
+        new Date().getFullYear() -
+        new Date(updated.personalInfo.dob).getFullYear();
+      updated.calculated.age = updated.personalInfo.age;
+    }
+    if (updated.vitals.height_cm && updated.vitals.weight_kg) {
+      const h = Number(updated.vitals.height_cm) / 100;
+      if (h > 0) {
+        updated.vitals.bmi = (
+          Number(updated.vitals.weight_kg) /
+          (h * h)
+        ).toFixed(1);
+        updated.calculated.bmi = updated.vitals.bmi;
+      }
+    }
+    return updated;
+  };
+  const filesToDataUrls = (attachments) =>
+    Promise.all(
+      (attachments || []).map((a) =>
+        a.file
+          ? new Promise((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res({ name: a.name, dataUrl: r.result });
+              r.onerror = rej;
+              r.readAsDataURL(a.file);
+            })
+          : Promise.resolve(a)
+      )
     );
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+    try {
+      setLoading(true);
+      let updated = getCalculatedFormData();
+      if (updated.attachments && updated.attachments.length > 0) {
+        updated.attachments = await filesToDataUrls(updated.attachments);
+      } else {
+        updated.attachments = [];
+      }
+      setFormData(updated);
+      await axios.post("http://localhost:3000/generate", updated);
+      navigate("/diet-plan", { state: { patient: updated.personalInfo } });
+    } catch (err) {
+      console.error("Backend error:", err.response?.data || err.message);
+      alert("Error generating diet plan. See console.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const Select = ({ label, options = [], value = "", onChange = () => {}, name }) => (
-        <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-            <select
-                name={name}
-                value={value === undefined || value === null ? "" : value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-            >
-                <option value="">— select —</option>
-                {options.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-        </div>
-    );
+  // --- UI primitives (fixed controlled inputs) ---
+  const Input = ({
+    label,
+    value = "",
+    onChange = () => {},
+    type = "text",
+    placeholder = "",
+    name,
+    id,
+  }) => (
+    <div>
+      <label className="block text-sm font-medium text-slate-600 mb-1">
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        value={value === undefined || value === null ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+      />
+    </div>
+  );
 
-    const DatalistAdd = ({ label, suggestions = [], items = [], onAdd = () => {}, onRemove = () => {}, placeholder = "" }) => {
-        const [val, setVal] = useState("");
-        return (
-            <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
-                <div className="flex gap-2">
-                    <input
-                        list={`${label}-list`}
-                        value={val}
-                        onChange={(e) => setVal(e.target.value)}
-                        placeholder={placeholder}
-                        className="flex-1 rounded-md border border-slate-200 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
-                    />
-                    <datalist id={`${label}-list`}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
-                    <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => { onAdd(val); setVal(""); }} className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700">Add</motion.button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                    {items.map((it, i) => (
-                        <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
-                            {it}
-                            <button type="button" onClick={() => onRemove(i)} className="text-red-500 hover:text-red-700 font-bold">×</button>
-                        </motion.span>
-                    ))}
-                </div>
-            </div>
-        );
-    };
+  const Select = ({
+    label,
+    options = [],
+    value = "",
+    onChange = () => {},
+    name,
+  }) => (
+    <div>
+      <label className="block text-sm font-medium text-slate-600 mb-1">
+        {label}
+      </label>
+      <select
+        name={name}
+        value={value === undefined || value === null ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+      >
+        <option value="">— select —</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
-    const steps = [
-        { name: "Personal Info", icon: <UserIcon /> },
-        { name: "Vitals & Ayurveda", icon: <HeartIcon /> },
-        { name: "Lifestyle & Medical", icon: <LeafIcon /> },
-        { name: "Preferences & Goals", icon: <ClipboardIcon /> },
-    ];
-
+  const DatalistAdd = ({
+    label,
+    suggestions = [],
+    items = [],
+    onAdd = () => {},
+    onRemove = () => {},
+    placeholder = "",
+  }) => {
+    const [val, setVal] = useState("");
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#f6fdf7] to-white p-4 sm:p-6 lg:p-8 font-sans">
-            <div className="max-w-6xl mx-auto">
-                <header className="mb-8 text-center">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-emerald-900">Ayurvedic Diet Planner</h1>
-                    <p className="text-slate-500 mt-2">Create a personalized, holistic diet plan in minutes.</p>
-                </header>
-
-                <div className="grid lg:grid-cols-3 gap-8">
-                    {/* --- LEFT: Multi-step Form --- */}
-                    <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100">
-                        {/* Stepper Navigation */}
-                        <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
-                            {steps.map((s, i) => (
-                                <div key={s.name} className={`flex items-center gap-3 text-sm ${step >= i ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${step >= i ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                        {s.icon}
-                                    </div>
-                                    <span className="hidden sm:inline">{s.name}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Form Content */}
-                        <AnimatePresence mode="wait">
-                            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.28 }}>
-                                {step === 0 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">Personal & Contact Info</h3>
-                                        <Input label="Full name" value={formData.personalInfo.fullName} onChange={(v) => updateNested("personalInfo", "fullName", v)} placeholder="e.g., Rohan Verma" />
-                                        <Input label="DOB" type="date" value={formData.personalInfo.dob} onChange={(v) => updateNested("personalInfo", "dob", v)} />
-                                        <Select label="Gender" options={genderOptions} value={formData.personalInfo.gender} onChange={(v) => updateNested("personalInfo", "gender", v)} />
-                                        <Input label="Phone" value={formData.personalInfo.contact.phone} onChange={(v) => updateDeep(["personalInfo", "contact", "phone"], v)} placeholder="+91xxxxxxxxxx" />
-                                        <Input label="Email" type="email" value={formData.personalInfo.contact.email} onChange={(v) => updateDeep(["personalInfo", "contact", "email"], v)} placeholder="name@example.com" />
-                                    </div>
-                                )}
-
-                                {step === 1 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">Vitals & Ayurvedic Profile</h3>
-                                        <Input label="Height (cm)" type="number" value={formData.vitals.height_cm} onChange={(v) => updateNested("vitals", "height_cm", v)} />
-                                        <Input label="Weight (kg)" type="number" value={formData.vitals.weight_kg} onChange={(v) => updateNested("vitals", "weight_kg", v)} />
-                                        <Input label="BP" value={formData.vitals.bp} onChange={(v) => updateNested("vitals", "bp", v)} placeholder="e.g. 120/80" />
-                                        <Select label="Prakriti" options={prakritiOptions} value={formData.ayurvedaProfile.prakriti} onChange={(v) => updateNested("ayurvedaProfile", "prakriti", v)} />
-                                        <Select label="Dosha Imbalance" options={doshaOptions} value={formData.ayurvedaProfile.doshaImbalance} onChange={(v) => updateNested("ayurvedaProfile", "doshaImbalance", v)} />
-                                        <Select label="Agni" options={agniOptions} value={formData.ayurvedaProfile.agni} onChange={(v) => updateNested("ayurvedaProfile", "agni", v)} />
-                                    </div>
-                                )}
-
-                                {step === 2 && (
-                                    <div className="space-y-6">
-                                        <h3 className="text-xl font-semibold text-slate-700">Lifestyle & Medical History</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                            <Select label="Diet Type" options={dietTypeOptions} value={formData.lifestyle.dietType} onChange={(v) => updateNested("lifestyle", "dietType", v)} />
-                                            <Select label="Physical activity" options={physicalActivityOptions} value={formData.lifestyle.physicalActivity} onChange={(v) => updateNested("lifestyle", "physicalActivity", v)} />
-                                            <Select label="Water intake (L)" options={["0.5", "1", "1.5", "2", "2.5", "3"]} value={formData.lifestyle.waterIntake_l} onChange={(v) => updateNested("lifestyle", "waterIntake_l", v)} />
-                                            <Select label="Bowel" options={bowelOptions} value={formData.lifestyle.bowel} onChange={(v) => updateNested("lifestyle", "bowel", v)} />
-                                            <DatalistAdd label="Allergies" suggestions={commonAllergies} items={formData.medicalInfo.allergies} onAdd={(v) => addToArray("medicalInfo", "allergies", v)} onRemove={(i) => removeFromArray("medicalInfo", "allergies", i)} />
-                                            <DatalistAdd label="Conditions" suggestions={commonConditions} items={formData.medicalInfo.conditions} onAdd={(v) => addToArray("medicalInfo", "conditions", v)} onRemove={(i) => removeFromArray("medicalInfo", "conditions", i)} />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {step === 3 && (
-                                    <div className="space-y-6">
-                                        <h3 className="text-xl font-semibold text-slate-700">Preferences, Goals & Attachments</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                            <DatalistAdd label="Avoid Foods" suggestions={commonFoods} items={formData.dietaryPreferences.avoidFoods} onAdd={(v) => addToArray("dietaryPreferences", "avoidFoods", v)} onRemove={(i) => removeFromArray("dietaryPreferences", "avoidFoods", i)} />
-                                            <DatalistAdd label="Preferred Foods" suggestions={commonFoods} items={formData.dietaryPreferences.preferredFoods} onAdd={(v) => addToArray("dietaryPreferences", "preferredFoods", v)} onRemove={(i) => removeFromArray("dietaryPreferences", "preferredFoods", i)} />
-                                            <Input label="Short-term goal" value={formData.goals.shortTerm} onChange={(v) => updateNested("goals", "shortTerm", v)} placeholder="e.g., Reduce pitta" />
-                                            <Input label="Long-term goal" value={formData.goals.longTerm} onChange={(v) => updateNested("goals", "longTerm", v)} placeholder="e.g., Prevent diabetes" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-600 mb-1">Attachments (Lab Reports, etc.)</label>
-                                            <input type="file" multiple onChange={(e) => handleAttachmentsChange(e.target.files)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"/>
-                                        </div>
-                                    </div>
-                                )}
-                            </motion.div>
-                        </AnimatePresence>
-
-                        {/* Navigation Buttons */}
-                        <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-center">
-                            <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className="px-4 py-2 bg-slate-50 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                                Previous
-                            </motion.button>
-                            {step < steps.length - 1 ? (
-                                <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => setStep(s => Math.min(steps.length - 1, s + 1))} className="px-6 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700">
-                                    Next
-                                </motion.button>
-                            ) : (
-                                <motion.button type="submit" whileTap={{ scale: 0.95 }} disabled={loading} onClick={handleSubmit} className="px-6 py-2 bg-emerald-500 text-white font-bold rounded-md shadow-lg hover:bg-emerald-600 disabled:bg-gray-400">
-                                    {loading ? "Generating..." : "Save & Generate Plan"}
-                                </motion.button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* --- RIGHT: Sticky Preview Card --- */}
-                    <div className="relative lg:col-span-1">
-                         <div className="sticky top-8">
-                            <PreviewCard formData={formData} onRefresh={() => setFormData(getCalculatedFormData())}/>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-600 mb-1">
+          {label}
+        </label>
+        <div className="flex gap-2">
+          <input
+            list={`${label}-list`}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            placeholder={placeholder}
+            className="flex-1 rounded-md border border-slate-200 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400"
+          />
+          <datalist id={`${label}-list`}>
+            {suggestions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              onAdd(val);
+              setVal("");
+            }}
+            className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700"
+          >
+            Add
+          </motion.button>
         </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {items.map((it, i) => (
+            <motion.span
+              key={i}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium"
+            >
+              {it}
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                className="text-red-500 hover:text-red-700 font-bold"
+              >
+                ×
+              </button>
+            </motion.span>
+          ))}
+        </div>
+      </div>
     );
+  };
+
+  const steps = [
+    { name: "Personal Info", icon: <UserIcon /> },
+    { name: "Vitals & Ayurveda", icon: <HeartIcon /> },
+    { name: "Lifestyle & Medical", icon: <LeafIcon /> },
+    { name: "Preferences & Goals", icon: <ClipboardIcon /> },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#f6fdf7] to-white p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-8 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-emerald-900">
+            Ayurvedic Diet Planner
+          </h1>
+          <p className="text-slate-500 mt-2">
+            Create a personalized, holistic diet plan in minutes.
+          </p>
+        </header>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* --- LEFT: Multi-step Form --- */}
+          <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100">
+            {/* Stepper Navigation */}
+            <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
+              {steps.map((s, i) => (
+                <div
+                  key={s.name}
+                  className={`flex items-center gap-3 text-sm ${
+                    step >= i ? "text-emerald-700" : "text-slate-400"
+                  }`}
+                >
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                      step >= i
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {s.icon}
+                  </div>
+                  <span className="hidden sm:inline">{s.name}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Form Content */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.28 }}
+              >
+                {step === 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">
+                      Personal & Contact Info
+                    </h3>
+                    <Input
+                      label="Full name"
+                      value={formData.personalInfo.fullName}
+                      onChange={(v) =>
+                        updateNested("personalInfo", "fullName", v)
+                      }
+                      placeholder="e.g., Rohan Verma"
+                    />
+                    <Input
+                      label="DOB"
+                      type="date"
+                      value={formData.personalInfo.dob}
+                      onChange={(v) => updateNested("personalInfo", "dob", v)}
+                    />
+                    <Select
+                      label="Gender"
+                      options={genderOptions}
+                      value={formData.personalInfo.gender}
+                      onChange={(v) =>
+                        updateNested("personalInfo", "gender", v)
+                      }
+                    />
+                    <Input
+                      label="Phone"
+                      value={formData.personalInfo.contact?.phone || ""}
+                      onChange={(v) =>
+                        updateDeep(["personalInfo", "contact", "phone"], v)
+                      }
+                      placeholder="+91xxxxxxxxxx"
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={formData.personalInfo.contact?.email || ""}
+                      onChange={(v) =>
+                        updateDeep(["personalInfo", "contact", "email"], v)
+                      }
+                      placeholder="name@example.com"
+                    />
+                  </div>
+                )}
+
+                {step === 1 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <h3 className="sm:col-span-2 text-xl font-semibold text-slate-700">
+                      Vitals & Ayurvedic Profile
+                    </h3>
+                    <Input
+                      label="Height (cm)"
+                      type="number"
+                      value={formData.vitals.height_cm}
+                      onChange={(v) => updateNested("vitals", "height_cm", v)}
+                    />
+                    <Input
+                      label="Weight (kg)"
+                      type="number"
+                      value={formData.vitals.weight_kg}
+                      onChange={(v) => updateNested("vitals", "weight_kg", v)}
+                    />
+                    <Input
+                      label="BP"
+                      value={formData.vitals.bp}
+                      onChange={(v) => updateNested("vitals", "bp", v)}
+                      placeholder="e.g. 120/80"
+                    />
+                    <Select
+                      label="Prakriti"
+                      options={prakritiOptions}
+                      value={formData.ayurvedaProfile.prakriti}
+                      onChange={(v) =>
+                        updateNested("ayurvedaProfile", "prakriti", v)
+                      }
+                    />
+                    <Select
+                      label="Dosha Imbalance"
+                      options={doshaOptions}
+                      value={formData.ayurvedaProfile.doshaImbalance}
+                      onChange={(v) =>
+                        updateNested("ayurvedaProfile", "doshaImbalance", v)
+                      }
+                    />
+                    <Select
+                      label="Agni"
+                      options={agniOptions}
+                      value={formData.ayurvedaProfile.agni}
+                      onChange={(v) =>
+                        updateNested("ayurvedaProfile", "agni", v)
+                      }
+                    />
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-semibold text-slate-700">
+                      Lifestyle & Medical History
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <Select
+                        label="Diet Type"
+                        options={dietTypeOptions}
+                        value={formData.lifestyle.dietType}
+                        onChange={(v) =>
+                          updateNested("lifestyle", "dietType", v)
+                        }
+                      />
+                      <Select
+                        label="Physical activity"
+                        options={physicalActivityOptions}
+                        value={formData.lifestyle.physicalActivity}
+                        onChange={(v) =>
+                          updateNested("lifestyle", "physicalActivity", v)
+                        }
+                      />
+                      <Select
+                        label="Water intake (L)"
+                        options={["0.5", "1", "1.5", "2", "2.5", "3"]}
+                        value={formData.lifestyle.waterIntake_l}
+                        onChange={(v) =>
+                          updateNested("lifestyle", "waterIntake_l", v)
+                        }
+                      />
+                      <Select
+                        label="Bowel"
+                        options={bowelOptions}
+                        value={formData.lifestyle.bowel}
+                        onChange={(v) => updateNested("lifestyle", "bowel", v)}
+                      />
+                      <DatalistAdd
+                        label="Allergies"
+                        suggestions={commonAllergies}
+                        items={formData.medicalInfo.allergies}
+                        onAdd={(v) => addToArray("medicalInfo", "allergies", v)}
+                        onRemove={(i) =>
+                          removeFromArray("medicalInfo", "allergies", i)
+                        }
+                      />
+                      <DatalistAdd
+                        label="Conditions"
+                        suggestions={commonConditions}
+                        items={formData.medicalInfo.conditions}
+                        onAdd={(v) =>
+                          addToArray("medicalInfo", "conditions", v)
+                        }
+                        onRemove={(i) =>
+                          removeFromArray("medicalInfo", "conditions", i)
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-semibold text-slate-700">
+                      Preferences, Goals & Attachments
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <DatalistAdd
+                        label="Avoid Foods"
+                        suggestions={commonFoods}
+                        items={formData.dietaryPreferences.avoidFoods}
+                        onAdd={(v) =>
+                          addToArray("dietaryPreferences", "avoidFoods", v)
+                        }
+                        onRemove={(i) =>
+                          removeFromArray("dietaryPreferences", "avoidFoods", i)
+                        }
+                      />
+                      <DatalistAdd
+                        label="Preferred Foods"
+                        suggestions={commonFoods}
+                        items={formData.dietaryPreferences.preferredFoods}
+                        onAdd={(v) =>
+                          addToArray("dietaryPreferences", "preferredFoods", v)
+                        }
+                        onRemove={(i) =>
+                          removeFromArray(
+                            "dietaryPreferences",
+                            "preferredFoods",
+                            i
+                          )
+                        }
+                      />
+                      <Input
+                        label="Short-term goal"
+                        value={formData.goals.shortTerm}
+                        onChange={(v) => updateNested("goals", "shortTerm", v)}
+                        placeholder="e.g., Reduce pitta"
+                      />
+                      <Input
+                        label="Long-term goal"
+                        value={formData.goals.longTerm}
+                        onChange={(v) => updateNested("goals", "longTerm", v)}
+                        placeholder="e.g., Prevent diabetes"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">
+                        Attachments (Lab Reports, etc.)
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) =>
+                          handleAttachmentsChange(e.target.files)
+                        }
+                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                      />
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Navigation Buttons */}
+            <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-center">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
+                disabled={step === 0}
+                className="px-4 py-2 bg-slate-50 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </motion.button>
+              {step < steps.length - 1 ? (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() =>
+                    setStep((s) => Math.min(steps.length - 1, s + 1))
+                  }
+                  className="px-6 py-2 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700"
+                >
+                  Next
+                </motion.button>
+              ) : (
+                <motion.button
+                  type="submit"
+                  whileTap={{ scale: 0.95 }}
+                  disabled={loading}
+                  onClick={handleSubmit}
+                  className="px-6 py-2 bg-emerald-500 text-white font-bold rounded-md shadow-lg hover:bg-emerald-600 disabled:bg-gray-400"
+                >
+                  {loading ? "Generating..." : "Save & Generate Plan"}
+                </motion.button>
+              )}
+            </div>
+          </div>
+
+          {/* --- RIGHT: Sticky Preview Card --- */}
+          <div className="relative lg:col-span-1">
+            <div className="sticky top-8">
+              <PreviewCard
+                formData={formData}
+                onRefresh={() => setFormData(getCalculatedFormData())}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // --- Preview Card Component ---
 const PreviewCard = ({ formData, onRefresh }) => {
-    const bmi = Number(formData.calculated?.bmi || formData.vitals?.bmi || 0);
-    const water = Number(formData.lifestyle?.waterIntake_l || 0);
+  const bmi = Number(formData.calculated?.bmi || formData.vitals?.bmi || 0);
+  const water = Number(formData.lifestyle?.waterIntake_l || 0);
 
-    const bmiData = useMemo(() => {
-        if (!bmi || bmi < 10 || bmi > 50) return { percent: 0, color: 'bg-slate-100 text-slate-700', label: 'N/A' };
-        const percent = Math.min(100, Math.max(0, ((bmi - 15) / 25) * 100)); // Normalize 15-40 BMI range
-        let color = 'bg-emerald-200 text-emerald-800';
-        let label = 'Healthy';
-        if (bmi < 18.5) { color = 'bg-yellow-100 text-yellow-800'; label = 'Underweight'; }
-        else if (bmi >= 25 && bmi < 30) { color = 'bg-orange-100 text-orange-800'; label = 'Overweight'; }
-        else if (bmi >= 30) { color = 'bg-red-100 text-red-800'; label = 'Obese'; }
-        return { percent, color, label };
-    }, [bmi]);
+  const bmiData = useMemo(() => {
+    if (!bmi || bmi < 10 || bmi > 50)
+      return { percent: 0, color: "bg-slate-100 text-slate-700", label: "N/A" };
+    const percent = Math.min(100, Math.max(0, ((bmi - 15) / 25) * 100)); // Normalize 15-40 BMI range
+    let color = "bg-emerald-200 text-emerald-800";
+    let label = "Healthy";
+    if (bmi < 18.5) {
+      color = "bg-yellow-100 text-yellow-800";
+      label = "Underweight";
+    } else if (bmi >= 25 && bmi < 30) {
+      color = "bg-orange-100 text-orange-800";
+      label = "Overweight";
+    } else if (bmi >= 30) {
+      color = "bg-red-100 text-red-800";
+      label = "Obese";
+    }
+    return { percent, color, label };
+  }, [bmi]);
 
-    const waterPercent = useMemo(() => Math.min(100, (water / 3.5) * 100), [water]); // Assume 3.5L goal
+  const waterPercent = useMemo(
+    () => Math.min(100, (water / 3.5) * 100),
+    [water]
+  ); // Assume 3.5L goal
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-80"
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4 }}
+      className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden w-80"
+    >
+      <div className="p-5 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-2 border-white/25">
+            {formData.personalInfo.fullName
+              ? formData.personalInfo.fullName.charAt(0).toUpperCase()
+              : "P"}
+          </div>
+          <div className="truncate">
+            <h3 className="text-lg font-bold truncate">
+              {formData.personalInfo.fullName || "Patient Preview"}
+            </h3>
+            <p className="text-sm text-emerald-200 truncate">
+              Age: {formData.calculated.age || "-"} •{" "}
+              {formData.personalInfo.gender || "Gender"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        <h4 className="text-md font-semibold text-slate-700 text-center">
+          Health Snapshot
+        </h4>
+
+        {/* BMI Chart */}
+        <div className="text-center">
+          <div className="relative w-36 h-36 mx-auto">
+            <svg className="w-full h-full" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                stroke="#eef2f3"
+                strokeWidth="10"
+                fill="none"
+              />
+              <motion.circle
+                cx="50"
+                cy="50"
+                r="45"
+                stroke={
+                  bmiData.color.includes("emerald")
+                    ? "#10b981"
+                    : bmiData.color.includes("yellow")
+                    ? "#d97706"
+                    : bmiData.color.includes("orange")
+                    ? "#f97316"
+                    : "#ef4444"
+                }
+                strokeWidth="10"
+                fill="none"
+                strokeLinecap="round"
+                style={{
+                  strokeDasharray: "283",
+                  strokeDashoffset: 283 - 283 * (bmiData.percent / 100),
+                }}
+                initial={{ strokeDashoffset: 283 }}
+                animate={{
+                  strokeDashoffset: 283 - 283 * (bmiData.percent / 100),
+                }}
+                transition={{ duration: 1.1, ease: "circOut" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-extrabold text-slate-800">
+                {bmi || "-"}
+              </span>
+              <span className="text-xs text-slate-500">BMI</span>
+              <span
+                className={`mt-2 inline-flex items-center justify-center text-xs font-semibold px-2 py-0.5 rounded-full ${bmiData.color}`}
+              >
+                {bmiData.label}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Water Intake Bar */}
+        <div>
+          <div className="flex justify-between text-sm font-medium text-slate-600 mb-1">
+            <span>Daily Water Intake</span>
+            <span className="font-bold text-emerald-600">
+              {water || "0"} L / 3.5 L
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${waterPercent}%` }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+            />
+          </div>
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onRefresh}
+          className="w-full mt-2 px-4 py-2 bg-emerald-50 text-emerald-700 font-semibold rounded-lg hover:bg-emerald-100 transition-colors"
         >
-            <div className="p-5 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
-                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-2 border-white/25">
-                        {formData.personalInfo.fullName ? formData.personalInfo.fullName.charAt(0).toUpperCase() : "P"}
-                    </div>
-                    <div className="truncate">
-                        <h3 className="text-lg font-bold truncate">{formData.personalInfo.fullName || "Patient Preview"}</h3>
-                        <p className="text-sm text-emerald-200 truncate">Age: {formData.calculated.age || "-"} • {formData.personalInfo.gender || "Gender"}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-6 space-y-5">
-                <h4 className="text-md font-semibold text-slate-700 text-center">Health Snapshot</h4>
-
-                {/* BMI Chart */}
-                <div className="text-center">
-                    <div className="relative w-36 h-36 mx-auto">
-                        <svg className="w-full h-full" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="45" stroke="#eef2f3" strokeWidth="10" fill="none" />
-                            <motion.circle
-                                cx="50" cy="50" r="45"
-                                stroke={bmiData.color.includes('emerald') ? '#10b981' : (bmiData.color.includes('yellow') ? '#d97706' : (bmiData.color.includes('orange') ? '#f97316' : '#ef4444'))}
-                                strokeWidth="10"
-                                fill="none"
-                                strokeLinecap="round"
-                                style={{ strokeDasharray: '283', strokeDashoffset: 283 - (283 * (bmiData.percent / 100)) }}
-                                initial={{ strokeDashoffset: 283 }}
-                                animate={{ strokeDashoffset: 283 - (283 * (bmiData.percent / 100)) }}
-                                transition={{ duration: 1.1, ease: 'circOut' }}
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-2xl font-extrabold text-slate-800">{bmi || '-'}</span>
-                            <span className="text-xs text-slate-500">BMI</span>
-                            <span className={`mt-2 inline-flex items-center justify-center text-xs font-semibold px-2 py-0.5 rounded-full ${bmiData.color}`}>{bmiData.label}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Water Intake Bar */}
-                <div>
-                    <div className="flex justify-between text-sm font-medium text-slate-600 mb-1">
-                        <span>Daily Water Intake</span>
-                        <span className="font-bold text-emerald-600">{water || "0"} L / 3.5 L</span>
-                    </div>
-                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                        <motion.div
-                            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${waterPercent}%` }}
-                            transition={{ duration: 1, ease: "easeInOut" }}
-                        />
-                    </div>
-                </div>
-
-                <motion.button 
-                    whileTap={{ scale: 0.97 }}
-                    onClick={onRefresh} 
-                    className="w-full mt-2 px-4 py-2 bg-emerald-50 text-emerald-700 font-semibold rounded-lg hover:bg-emerald-100 transition-colors"
-                >
-                    Refresh Snapshot
-                </motion.button>
-            </div>
-        </motion.div>
-    );
+          Refresh Snapshot
+        </motion.button>
+      </div>
+    </motion.div>
+  );
 };
