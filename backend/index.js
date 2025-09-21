@@ -29,11 +29,42 @@ app.put("/patient-plan/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body;
-    await db.collection("dietPlans").doc(id).update(updatedData);
-    res.json({ success: true });
+
+    // Fetch food items from Firestore
+    const snapshot = await db.collection("foodItems").get();
+    const foodData = snapshot.docs.map(doc => doc.data());
+
+    // Combine updated patient + food data
+    const combinedData = { ...updatedData, foodData };
+
+    // Call external diet API to re-generate plan
+    const response = await axios.post(
+      "https://fourdietapi-1.onrender.com/generate_plan",
+      combinedData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+        },
+        timeout: 60000,
+      }
+    );
+
+    const dietPlan = response.data;
+    let recommendedMeals = dietPlan.recommendedMeals || dietPlan.weekly_plan || dietPlan.recommendations || [];
+
+    // Update the Firestore document with new plan
+    await db.collection("dietPlans").doc(id).update({
+      ...updatedData,
+      dietPlan,
+      recommendedMeals,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ success: true, recommendedMeals, fullPlan: dietPlan });
   } catch (err) {
     console.error("Update patient plan error:", err);
-    res.status(500).json({ error: "Failed to update patient plan" });
+    res.status(500).json({ error: "Failed to update and re-generate patient plan" });
   }
 });
 
