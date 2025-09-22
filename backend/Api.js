@@ -386,6 +386,156 @@
 // );
 
 
+
+
+// import express from "express";
+// import cors from "cors";
+// import admin from "firebase-admin";
+// import axios from "axios";
+// import fs from "fs";
+
+// const app = express();
+// app.use(cors());
+// app.use(express.json());
+
+// // --- Initialize Firebase Admin ---
+// const serviceAccount = JSON.parse(
+//   fs.readFileSync("./serviceAccountKey.json", "utf8")
+// );
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
+
+// const db = admin.firestore();
+
+// // --- Generate Diet Plan & Save to Firestore ---
+// app.post("/generate", async (req, res) => {
+//   try {
+//     const patientData = req.body;
+//     if (!patientData) {
+//       return res.status(400).json({ error: "Patient data required" });
+//     }
+
+//     // Fetch food items from Firestore
+//     const snapshot = await db.collection("foodItems").get();
+//     const foodData = snapshot.docs.map((doc) => doc.data());
+
+//     // Combine patient + food data
+//     const combinedData = { ...patientData, foodData };
+
+//     // Call external diet API
+//     const response = await axios.post(
+//       "https://fourdietapi-1.onrender.com/generate_plan",
+//       combinedData,
+//       {
+//         headers: {
+//           "Content-Type": "application/json",
+//           "X-API-Key": process.env.DIET_PLANNER_API_KEY || "1234",
+//         },
+//         timeout: 60000,
+//       }
+//     );
+
+//     const dietPlan = response.data;
+
+//     // Ensure recommendedMeals exists
+//     let recommendedMeals = dietPlan.recommendedMeals;
+//     if (!recommendedMeals || recommendedMeals.length === 0) {
+//       recommendedMeals = dietPlan.weekly_plan || dietPlan.recommendations || [];
+//     }
+
+//     // --- Save to Firestore ---
+//     const docRef = await db.collection("dietPlans").add({
+//       patient: patientData.personalInfo,
+//       vitals: patientData.vitals,
+//       lifestyle: patientData.lifestyle,
+//       ayurvedaProfile: patientData.ayurvedaProfile,
+//       dietaryPreferences: patientData.dietaryPreferences,
+//       goals: patientData.goals,
+//       dietPlan,
+//       recommendedMeals, // Save normalized array
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     });
+
+//     // Return consistent structure + document ID
+//     return res.json({
+//       id: docRef.id, // 🔥 new: return Firestore doc ID
+//       recommendedMeals,
+//       fullPlan: dietPlan,
+//     });
+//   } catch (err) {
+//     console.error("Backend error:", err.response?.data || err.message);
+//     res.status(500).json({ error: "Failed to generate and save plan" });
+//   }
+// });
+
+// // --- Fetch latest saved diet plan ---
+// app.get("/fetch-latest-plan", async (req, res) => {
+//   try {
+//     const snapshot = await db
+//       .collection("dietPlans")
+//       .orderBy("createdAt", "desc")
+//       .limit(1)
+//       .get();
+
+//     if (snapshot.empty) return res.json({ recommendedMeals: [] });
+
+//     const doc = snapshot.docs[0];
+//     const data = doc.data();
+
+//     res.json({
+//       id: doc.id, // 🔥 return the ID too
+//       recommendedMeals: data.recommendedMeals || [],
+//       fullPlan: data.dietPlan || {},
+//     });
+//   } catch (err) {
+//     console.error("Fetch latest plan error:", err);
+//     res.status(500).json({ error: "Failed to fetch latest plan" });
+//   }
+// });
+
+// // --- Fetch specific patient plan by ID ---
+// app.get("/patient-plan/:id", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const doc = await db.collection("dietPlans").doc(id).get();
+//     console.log("Looking for plan:", id);
+
+//     if (!doc.exists) {
+//       return res.status(404).json({ error: "Patient plan not found" });
+//     }
+
+//     const data = doc.data();
+//     res.json({
+//       id: doc.id,
+//       recommendedMeals: data.recommendedMeals || [],
+//       fullPlan: data.dietPlan || {},
+//       patientInfo: {
+//         personalInfo: data.patient || {},
+//         vitals: data.vitals || {},
+//         lifestyle: data.lifestyle || {},
+//         ayurvedaProfile: data.ayurvedaProfile || {},
+//         dietaryPreferences: data.dietaryPreferences || {},
+//         goals: data.goals || {},
+//         calculated: data.calculated || {},
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Fetch patient plan error:", err);
+//     res.status(500).json({ error: "Failed to fetch patient plan" });
+//   }
+// });
+
+// app.listen(3000, () =>
+//   console.log("✅ Backend running on http://localhost:3000")
+// );
+
+
+
+
+
+
 import express from "express";
 import cors from "cors";
 import admin from "firebase-admin";
@@ -458,7 +608,7 @@ app.post("/generate", async (req, res) => {
 
     // Return consistent structure + document ID
     return res.json({
-      id: docRef.id, // 🔥 new: return Firestore doc ID
+      id: docRef.id, // 🔥 return Firestore doc ID
       recommendedMeals,
       fullPlan: dietPlan,
     });
@@ -522,6 +672,32 @@ app.get("/patient-plan/:id", async (req, res) => {
   } catch (err) {
     console.error("Fetch patient plan error:", err);
     res.status(500).json({ error: "Failed to fetch patient plan" });
+  }
+});
+
+// --- Update specific patient plan by ID ---
+app.put("/patient-plan/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedData = req.body;
+
+    const docRef = db.collection("dietPlans").doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Patient plan not found" });
+    }
+
+    await docRef.update({
+      ...updatedData,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const newDoc = await docRef.get();
+    res.json({ id: newDoc.id, ...newDoc.data() });
+  } catch (err) {
+    console.error("Update patient plan error:", err);
+    res.status(500).json({ error: "Failed to update patient plan" });
   }
 });
 
