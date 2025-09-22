@@ -68,6 +68,47 @@ app.put("/patient-plan/:id", async (req, res) => {
   }
 });
 
+// --- Update only meals for a patient plan (no regeneration) ---
+app.put("/patient-plan/:id/meals", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { recommendedMeals, fullPlan } = req.body || {};
+
+    if (!recommendedMeals || !Array.isArray(recommendedMeals)) {
+      return res.status(400).json({ error: "recommendedMeals array is required" });
+    }
+
+    const docRef = db.collection("dietPlans").doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Patient plan not found" });
+    }
+
+    const updates = {
+      recommendedMeals,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Optionally persist provided fullPlan structure (e.g., weekly_plan)
+    if (fullPlan && typeof fullPlan === "object") {
+      updates.dietPlan = { ...(doc.data().dietPlan || {}), ...fullPlan };
+    }
+
+    await docRef.update(updates);
+
+    const newDoc = await docRef.get();
+    const data = newDoc.data();
+    return res.json({
+      success: true,
+      recommendedMeals: data.recommendedMeals || [],
+      fullPlan: data.dietPlan || {},
+    });
+  } catch (err) {
+    console.error("Update meals error:", err);
+    return res.status(500).json({ error: "Failed to update meals" });
+  }
+});
+
 // --- Generate Diet Plan & Save to Firestore ---
 app.post("/generate", async (req, res) => {
   try {
