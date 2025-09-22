@@ -3186,6 +3186,7 @@ export default function DietPlanPage() {
   const [plan, setPlan] = useState(null);
   const [formData, setFormData] = useState(passedFormData || defaultFormData);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [editingCell, setEditingCell] = useState({
     dayIdx: null,
@@ -3252,6 +3253,31 @@ export default function DietPlanPage() {
       return updated;
     });
     cancelEdit();
+  };
+
+  const saveChanges = async () => {
+    try {
+      if (!patientId) {
+        alert("Cannot save: patient ID is missing.");
+        return;
+      }
+      if (!plan?.recommendedMeals) {
+        alert("Nothing to save.");
+        return;
+      }
+      setIsSaving(true);
+      await axios.put(`http://localhost:3000/patient-plan/${patientId}/meals`, {
+        recommendedMeals: plan.recommendedMeals,
+        fullPlan: { weekly_plan: plan.recommendedMeals },
+      });
+      await fetchPatientPlan(patientId);
+      alert("Changes saved successfully.");
+    } catch (err) {
+      console.error("Failed to save changes:", err.response?.data || err.message);
+      alert("Failed to save changes. See console for details.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   /* ---------- PDF Generation ---------- */
@@ -3476,14 +3502,24 @@ export default function DietPlanPage() {
         <main className="col-span-12 lg:col-span-12">
           <header className="flex justify-between mb-6">
             <h1 className="text-3xl font-extrabold text-emerald-900">{formData.personalInfo.fullName}</h1>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={generatePDF}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg"
-            >
-              <DownloadIcon />
-              Download PDF
-            </motion.button>
+            <div className="inline-flex items-center gap-3">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={saveChanges}
+                disabled={isSaving}
+                className={`px-4 py-2 rounded-lg text-white ${isSaving ? "bg-emerald-300 cursor-not-allowed" : "bg-emerald-700 hover:bg-emerald-800"}`}
+              >
+                {isSaving ? "Saving..." : "Save changes"}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={generatePDF}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg"
+              >
+                <DownloadIcon />
+                Download PDF
+              </motion.button>
+            </div>
           </header>
 
           {loading ? (
